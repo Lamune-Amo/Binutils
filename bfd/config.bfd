@@ -161,6 +161,7 @@ case "${targ_cpu}" in
 aarch64*)	 targ_archs="bfd_aarch64_arch bfd_arm_arch";;
 alpha*)		 targ_archs=bfd_alpha_arch ;;
 am33_2.0*)	 targ_archs=bfd_mn10300_arch ;;
+amo*)		 targ_archs=bfd_amo_arch ;;
 arc*)		 targ_archs=bfd_arc_arch ;;
 arm*)		 targ_archs=bfd_arm_arch ;;
 bfin*)		 targ_archs=bfd_bfin_arch ;;
@@ -315,6 +316,11 @@ case "${targ}" in
     want64=true
     ;;
 #endif /* BFD64 */
+
+  amo-*-linux*)
+	targ_defvec=amo_elf32_vec
+	targ_selvecs=amo_elf32_vec
+	;;
 
   am33_2.0-*-linux*)
     targ_defvec=am33_elf32_linux_vec

@@ -1968,6 +1968,8 @@ enum bfd_architecture
 {
   bfd_arch_unknown,   /* File arch not known.  */
   bfd_arch_obscure,   /* Arch known, not one of these.  */
+  bfd_arch_amo,		  /* amo */
+#define bfd_mach_amo				   1
   bfd_arch_m68k,      /* Motorola 68xxx.  */
 #define bfd_mach_m68000                1
 #define bfd_mach_m68008                2
@@ -3021,6 +3023,9 @@ between two procedure entry points is < 2^21, or else a hint.  */
   BFD_RELOC_ALPHA_TPREL_HI16,
   BFD_RELOC_ALPHA_TPREL_LO16,
   BFD_RELOC_ALPHA_TPREL16,
+
+/* Amo relative relocation.  */
+  BFD_RELOC_AMO_RELATIVE,
 
 /* The MIPS jump instruction.  */
   BFD_RELOC_MIPS_JMP,

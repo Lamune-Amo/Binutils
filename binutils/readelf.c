@@ -91,6 +91,7 @@
 
 #include "elf/aarch64.h"
 #include "elf/alpha.h"
+#include "elf/amo.h"
 #include "elf/arc.h"
 #include "elf/arm.h"
 #include "elf/avr.h"
@@ -789,6 +790,7 @@ guess_is_rela (unsigned int e_machine)
     case EM_ADAPTEVA_EPIPHANY:
     case EM_ALPHA:
     case EM_ALTERA_NIOS2:
+	case EM_AMO:
     case EM_ARC:
     case EM_ARC_COMPACT:
     case EM_ARC_COMPACT2:
@@ -1256,6 +1258,10 @@ dump_relocations (Filedata *          filedata,
 	{
 	default:
 	  rtype = NULL;
+	  break;
+
+	case EM_AMO:
+	  rtype = elf_amo_reloc_type (type);
 	  break;
 
 	case EM_AARCH64:

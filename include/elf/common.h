@@ -341,6 +341,7 @@
 #define EM_BPF		247	/* Linux BPF – in-kernel virtual machine.  */
 #define EM_NFP		250	/* Netronome Flow Processor.  */
 #define EM_CSKY		252	/* C-SKY processor family.  */
+#define EM_AMO		263 /* amo */
 
 /* If it is necessary to assign new unofficial EM_* values, please pick large
    random numbers (0x8523, 0xa7f2, etc.) to minimize the chances of collision

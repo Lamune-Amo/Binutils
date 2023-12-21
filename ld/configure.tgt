@@ -84,6 +84,8 @@ alpha*-*-netbsd*)	targ_emul=elf64alpha_nbsd ;;
 alpha*-*-openbsd*)	targ_emul=elf64alpha ;;
 alpha*-*-*vms*)		targ_emul=alphavms
 			;;
+amo-*-*)			targ_emul=elf32amo
+			;;
 arc*-*-elf*)		targ_emul=arcelf
 			targ_extra_emuls="arcelf_prof arclinux arclinux_nps arclinux_prof arcv2elf arcv2elfx"
 			;;

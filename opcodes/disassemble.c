@@ -26,6 +26,7 @@
 #ifdef ARCH_all
 #define ARCH_aarch64
 #define ARCH_alpha
+#define ARCH_amo
 #define ARCH_arc
 #define ARCH_arm
 #define ARCH_avr
@@ -126,6 +127,11 @@ disassembler (enum bfd_architecture a,
 #ifdef ARCH_alpha
     case bfd_arch_alpha:
       disassemble = print_insn_alpha;
+      break;
+#endif
+#ifdef ARCH_amo
+    case bfd_arch_amo:
+      disassemble = print_insn_amo;
       break;
 #endif
 #ifdef ARCH_arc

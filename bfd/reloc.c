@@ -2102,6 +2102,11 @@ ENUMDOC
   Alpha thread-local storage relocations.
 
 ENUM
+  BFD_RELOC_AMO_RELATIVE
+ENUMDOC
+  Amo relative relocation.
+
+ENUM
   BFD_RELOC_MIPS_JMP
 ENUMX
   BFD_RELOC_MICROMIPS_JMP
