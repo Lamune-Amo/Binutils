@@ -1,5 +1,7 @@
-/* tc-amo.c -- Assembler for the amo.
-   Copyright (C) 2000-2023 Free Software Foundation, Inc.
+/* tc-amo.c -- Assembler for the AMO
+   Copyright (C) 2000-2024 Free Software Foundation, Inc.
+
+   Author: Yechan Hong <yechan0815@naver.com>
 
    This file is part of GAS, the GNU Assembler.
 
@@ -14,324 +16,282 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GAS; see the file COPYING.  If not, write to
-   the Free Software Foundation, 51 Franklin Street - Fifth Floor,
-   Boston, MA 02110-1301, USA.  */
-
-/* absolutely minimal assembler setup, things that are required to exist */
+   along with GAS; see the file COPYING.  If not, write to the Free
+   Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "as.h"
 #include "bfd.h"
 #include "opcode/amo.h"
 
+/* command line option */
 const char *md_shortopts = "";
 struct option md_longopts[] = {};
-size_t md_longopts_size = sizeof(md_longopts);
+size_t md_longopts_size = sizeof (md_longopts);
 
-/* comment characters and separators */
-const char comment_chars[] = "";
-const char line_comment_chars[] = "//";
-const char line_separator_chars[] = ";";
+/* character which always start a comment */
+const char comment_chars[] = ";";
+/* character which start a comment at the beginning of a line */
+const char line_comment_chars[] = "#";
+/* character which may be used to separate multiple commands on a single line.  */
+const char line_separator_chars[] = "";
 
-/* no floating point */
+/* there is no floating point */
 const char EXP_CHARS[] = "";
 const char FLT_CHARS[] = "";
 
-/* no pseudo ops yet */
+/* no pseudo opcode (directive) */
 const pseudo_typeS md_pseudo_table[] =
 {
-	{ (char *) NULL, (void(*)(int)) NULL, 0 }
+	{ (char *) NULL, (void (*)(int)) NULL, 0 }
 };
 
-struct hash_control *reg_table;
+static struct hash_control *amo_reg_hash;
 
-/* cant parse if there are no opts */
-int md_parse_option(int c, const char *arg)
+struct amo_instruction
 {
-	(void) c;
-	(void) arg;
-	return 0;
-}
+	/* mnemonic */
+	char name[MNEMONIC_LENGTH_MAX];
 
-/* command line usage */
-void md_show_usage(FILE *stream)
-{
-	fprintf(stream, "\namo options: none available yet\n");
-}
-
-/*****************************************************************************/
-/* See if the specified name is a register (r0-r63). Nothing actually to	 */
-/* parse here, just look up in the register table							 */
-/*****************************************************************************/
-
-static int amo_parse_register(const char *name, expressionS *resultP)
-{
-	symbolS *reg_sym = hash_find(reg_table, name);
-
-	if (reg_sym != 0)
-	{
-		resultP->X_op = O_register;
-		resultP->X_add_number = S_GET_VALUE(reg_sym);
-		return 1;
-	}
-	return 0;
-}
-
-static int amo_parse_port(const char *name,
-				   expressionS *resultP)
-{
-	if (0 == strcmp(name, "port32"))
-	{
-		resultP->X_op_symbol = 0;
-		resultP->X_add_symbol = 0;
-		resultP->X_op = O_port;
-		return 1;
-	}
-	return 0;
-}
-
-static int amo_parse_branch(const char *name,
-					 expressionS *resultP,
-					 char *next_char)
-{
-	expressionS op_expr;
-
-	int seen_parenthesis = 0;
-	int is_jump = !strcmp(name, "jump");
-	int is_jrel = !strcmp(name, "jrel");
-
-	if (!(is_jump || is_jrel))
-	{
-		return 0;
-	}
-
-	(void) restore_line_pointer(*next_char);
-	SKIP_WHITESPACE();
-
-	if ('(' == *input_line_pointer)
-	{
-		seen_parenthesis = 1;
-		input_line_pointer++;
-	}
-	else
-	{
-		as_warn("missing '(' in 'jump/jrel' instruction syntax");
-	}
+	/* total number of opernad */
+	unsigned char number;
 	
-	memset(&op_expr, 0, sizeof(expressionS));
-	expression(&op_expr);
+	/* opernads */
+	expressionS operands[OPERAND_PER_INSTRUCTION_MAX];
+};
 
-	resultP->X_add_symbol = make_expr_symbol(&op_expr);
-	resultP->X_op = is_jump ? O_jump : O_jrel;
+struct amo_instruction insn;
 
-	if (1 == seen_parenthesis)
-	{
-		if (')' != *input_line_pointer)
-		{
-			as_bad("missing ')' in 'jump/jrel' instruction syntax");
-		}
-		else
-			++input_line_pointer;
-	}
-
-	if (*input_line_pointer != '\0')
-	{
-		as_bad("unexpected '%c' in 'jump/jrel' instruction syntax", *input_line_pointer);
-	}
-
-	/* need to mark next_char properly otherwise input_line_pointer 
-	   will be reset to the position right after 'jump/jrel' */
-	*next_char = *input_line_pointer;
-	return 1;
-}
-
-static int amo_parse_symbol(const char *name,
-				     expressionS *resultP)
+int
+md_parse_option (int c ATTRIBUTE_UNUSED, const char *arg ATTRIBUTE_UNUSED)
 {
-	symbolS *sym = symbol_find_or_make(name);
-	know(sym != 0);
-
-	resultP->X_op = O_symbol;
-	resultP->X_add_symbol = sym;
-
-	resultP->X_add_number = 1;
-	return 1;
-}
-
-/*****************************************************************************/
-/* In order to catch assembgler keywords and assign them properly, hook in a */
-/* custom name checking routine												 */
-/*****************************************************************************/
-
-int amo_parse_name(const char *name,
-				   expressionS *resultP,
-				   char *next_char)
-{
-	gas_assert(name != 0 && resultP != 0);
-
-	if (amo_parse_register(name, resultP) != 0)
-		return 1;
-	if (amo_parse_port(name, resultP) != 0)
-		return 1;
-	if (amo_parse_branch(name, resultP, next_char) != 0)
-		return 1;
-	if (amo_parse_symbol(name, resultP) != 0)
-		return 1;
 	return 0;
+#ifdef USE_PARSE_OPTION
+	/* should return 1 if option parsing is successful */
+	return 1;
+#endif
 }
 
-/*custom initializer hook, called once per assembler invokation */
-void md_begin(void)
+void
+md_show_usage (FILE *stream)
+{
+	/* print the help for custom options */
+	fprintf(stream, "\namo options: TODO\n");
+}
+
+static void
+declare_register (const char *name, int number)
+{
+	const char *err;
+	symbolS *regS;
+	
+	regS = symbol_create (name, reg_section, number, &zero_address_frag);
+	if ((err = hash_insert (amo_reg_hash, S_GET_NAME (regS), (PTR) regS)))
+		as_fatal (_("register set initialization failed: %s"), err);
+}
+
+static void
+declare_register_set (void)
+{
+	char name[5];
+	int i;
+	
+	for (i = 0; i < 32; ++i)
+    {
+		sprintf (name, "r%d", i);
+		declare_register (name, i);
+    }
+}
+
+/* this function gets invoked once when assembler is initialized. */
+void
+md_begin (void)
 {
 	int i;
 
-	reg_table = hash_new();
+	/* make register set hash table */
+	amo_reg_hash = hash_new();
 
-	for (i = 0; i < AMO_NUM_REGISTERS; ++i)
-	{
-		char name[5];
-
-		sprintf(name, "r%d", i);
-
-		symbolS *reg_sym =
-			symbol_new(name, reg_section, i, &zero_address_frag);
-
-		if (hash_insert(reg_table, S_GET_NAME(reg_sym), (PTR) reg_sym))
-		{
-			as_fatal(_("failed creating register symbols"));
-		}
-	}
+	/* declare common register set */
+	declare_register_set ();
+	/* declare special registers */
+	declare_register ("sp", 29);
+	declare_register ("fp", 30);
+	declare_register ("lr", 31);
+	/* declare system registers */
+	declare_register ("cr0", 32);
 }
 
-static bfd_boolean amo_build_insn(amo_slot_insn *insn,
-								  expressionS *lhs,
-								  expressionS *rhs)
+static int
+expression_constant (char *str)
 {
-	gas_assert(lhs != 0 && insn != 0);
+	unsigned char radix;
 
-	switch(lhs->X_op)
+	gas_assert (*str == '$');
+
+	str++;
+	radix = 10;
+
+	/* hexadecimal */
+	if (!strncmp (str, "0x", 2))
 	{
-		case O_register:
-		{
-			gas_assert(rhs != 0);
-
-			insn->dst = lhs->X_add_number;
-
-			if (O_register == rhs->X_op)
-			{
-				insn->opcode = OP_MOV;
-				insn->admode = AM_01001;
-				insn->src0 = rhs->X_add_number;
-				return TRUE;
-			}
-			else if (O_constant == rhs->X_op)
-			{
-				insn->opcode = OP_MOV;
-				insn->admode = AM_01000;
-				insn->pad = 1;
-				insn->immv = rhs->X_add_number;
-				return TRUE;
-			}
-			else if (O_add == rhs->X_op)
-			{
-				insn->opcode = OP_ADD;
-				gas_assert(rhs->X_add_symbol != 0 && rhs->X_op_symbol != 0);
-
-				expressionS *op1_expr = symbol_get_value_expression(rhs->X_add_symbol);
-				expressionS *op2_expr = symbol_get_value_expression(rhs->X_op_symbol);
-
-				if (op1_expr->X_op != O_register)
-				{
-					as_bad("operand expected to be a register");
-					return FALSE;
-				}
-
-				insn->src0 = op1_expr->X_add_number;
-				if (O_register == op2_expr->X_op)
-				{
-					insn->admode = AM_01011;
-					insn->src1 = op2_expr->X_add_number;
-					return TRUE;
-				}
-				else if (O_constant == op2_expr->X_op)
-				{
-					insn->admode = AM_01010;
-					insn->immv = op2_expr->X_add_number;
-					insn->pad = 1;
-					return TRUE;
-				}
-
-				as_bad("unexpected operand type for 'add'");
-			}
-			else if (O_index == rhs->X_op)
-			{
-				expressionS *index_expr = symbol_get_value_expression(rhs->X_op_symbol);
-
-				if (O_register == index_expr->X_op)
-				{
-					insn->opcode = OP_LOAD;
-					insn->admode = AM_01001;
-					insn->src0 = index_expr->X_add_number;
-					return TRUE;
-				}
-
-				as_bad("unexpacted operand type for 'load'");
-			}
-
-			break;
-		}
-
-		case O_index:
-		{
-			if (O_register == rhs->X_op)
-			{
-				insn->dst = rhs->X_add_number;
-				expressionS *index_expr = symbol_get_value_expression(lhs->X_op_symbol);
-
-				if (O_register == index_expr->X_op)
-				{
-					insn->opcode = OP_STORE;
-					insn->admode = AM_01001;
-					insn->src0 = index_expr->X_add_number;
-					return TRUE;
-				}
-			}
-			as_bad("unexpacted operand type for 'store'");
-			break;
-		}
-
-		case O_jump:
-		case O_jrel:
-		{
-			gas_assert (lhs->X_add_symbol != 0);
-
-			insn->opcode = O_jump == lhs->X_op ? OP_JUMP : OP_JUMP_REF;
-
-			expressionS *target_expr = symbol_get_value_expression(lhs->X_add_symbol);
-
-			if (O_register == target_expr->X_op)
-			{
-				insn->admode = AM_01001;
-				insn->dst = target_expr->X_add_number;
-				return TRUE;
-			}
-			else if (O_symbol == target_expr->X_op)
-			{
-				insn->admode = AM_01000;
-				insn->pad = 1;
-				return TRUE;
-			}
-			as_bad ("unexpected operand type for 'jump/jrel'");
-			break;
-		}
-		
-		default: break;
+		str += 2;
+		radix = 16;
 	}
 
-	return FALSE;
+	/* binary */
+	if (!strncmp (str, "0b", 2))
+	{
+		str += 2;
+		radix = 2;
+	}
+
+	/* decimal (signed) */
+	return strtol (str, NULL, radix);
 }
 
-static void amo_emit_insn(amo_slot_insn *insn,
+static int
+parse_dereference (char *name, expressionS *e)
+{
+	symbolS *sym;
+	char *mark;
+
+	name++;
+	name [strlen (name) - 1] = '\0';
+
+	e->X_op = O_dereference;
+
+	mark = name;
+	while (*mark && *mark != ',')
+		mark++;
+	if (!*mark)
+	{
+		sym = hash_find (amo_reg_hash, name);
+		if (sym)
+		{
+			e->X_add_symbol = sym;
+			return 1;
+		}
+		/* abort this if there is no register at first */
+		abort ();
+	}
+
+	*mark = '\0';
+	sym = hash_find (amo_reg_hash, name);
+	if (!sym)
+		/* abort this if there is no valid register at first */
+		abort ();
+	e->X_add_symbol = sym;
+	e->X_add_number = expression_constant (mark + 1);
+
+	return 1;
+}
+
+static int
+parse_constant (const char *name, expressionS *e)
+{
+	e->X_op = O_constant;
+	e->X_add_number = expression_constant (name);
+
+	return 1;
+}
+
+static int 
+parse_operand (char *name, expressionS *e)
+{
+	/* catch the keywords and let the linker handle undefined symbols. */
+	symbolS *sym;
+
+	/* register */
+	sym = hash_find (amo_reg_hash, name);
+	if (sym)
+	{
+		e->X_op = O_register;
+		e->X_add_number = S_GET_VALUE (sym);
+		return 1;
+	}
+	/* dereference */
+	if (*name == '[')
+		return parse_dereference (name, e);
+	/* constant */
+	if (*name == '$')
+		return parse_constant (name, e);
+	/* symbol */
+	/* symbol naming rules */
+	/* symbol name cant start from number */
+	if (isdigit (*name))
+		as_bad ("invalid symbol name %s: symbol can't start from number", name);
+
+	sym = symbol_find_or_make (name);
+	
+	gas_assert (sym != 0);
+
+	e->X_op = O_symbol;
+	e->X_add_symbol = sym;
+	
+	/* throw the problem to ld */
+	return 1;
+}
+
+static char *
+parse_mnemonic (char *str)
+{
+	char *mark;
+
+	mark = str;
+	while (*mark && !isspace (*mark))
+		mark++;
+	if (*mark)
+	{
+		*mark = '\0';
+		strcpy (insn.name, str);
+
+		return mark + 1;
+	}
+	strcpy (insn.name, str);
+
+	return mark;
+}
+
+static char *
+parse_operands (char *str)
+{
+	unsigned int brakets_depth;
+	char *mark, *name;
+
+	brakets_depth = 0;
+	while (*str)
+	{
+		mark = str;
+		while (*mark)
+		{
+			if (*mark == '[')
+				brakets_depth++;
+			else if (*mark == ']')
+				brakets_depth--;
+			if (brakets_depth == 0 && *mark == ',')
+				break;
+			mark++;
+		}
+		if (brakets_depth)
+		{
+			/* syntax error */
+			as_bad("incorrect use of brackets");
+		}
+		name = str;
+		str = mark;
+		if (*mark)
+		{
+			*mark = '\0';
+			str = mark + 1;
+		}
+		(void) parse_operand (name, &insn.operands[insn.number++]);
+	}
+	return str;
+}
+
+/*
+static void amo_emit_insn(void *insn,
 						  expressionS *lhs,
 						  expressionS *rhs)
 {
@@ -375,61 +335,229 @@ static void amo_emit_insn(amo_slot_insn *insn,
 				(void) fix_new_exp(frag_now, where, 4, addr_expr, 1, BFD_RELOC_AMO_RELATIVE);
 			}
 		}
-		
+
 		md_number_to_chars(frag, insn->immv, AMO_BYTES_SLOT_IMMEDIATE);
 	}
+}*/
+
+static int
+bit_to_integer (int value, int bit)
+{
+	if (!((value >> (bit - 1)) & 0x1))
+		return value;
+
+	switch (bit)
+	{
+		case 16:
+			return value | 0xFFFF0000;
+		case 21:
+			return value | 0xFFE00000;
+	}
+
+	/* shoudn't be called */
+	abort ();
 }
 
-/* main assembler hook, called once for each "instruction string" */
-void md_assemble(char *insn_str)
+static void
+emit_nop (unsigned char opcode, int param)
 {
-	printf("Assembling instruction string: %s\n", insn_str);
+	char *frag;
+	
+	frag = frag_more (BYTES_PER_INSTRUCTION);
 
-	amo_slot_insn *insn = 0;
-	expressionS lhs_info, rhs_info;
-	int insn_done = 0;
-	int assign_pos;
-	char *assign;
+	md_number_to_chars(frag, 0x00000000, BYTES_PER_INSTRUCTION);
+}
 
-	assign = strchr(insn_str, '=');
-	input_line_pointer = insn_str;
+static void
+emit_arithmetic (unsigned char opcode, int param)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
 
-	memset(&lhs_info, 0, sizeof(expressionS));
-	expression(&lhs_info);
-
-	insn = (amo_slot_insn *)malloc(sizeof(amo_slot_insn));
-
-	if (assign)
+	binary |= (opcode << 26);
+	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
+	if (param == INSN_TYPE_IMMEDIATE)
 	{
-		assign_pos = assign - insn_str;
-		input_line_pointer = ++assign;
-
-		memset(&rhs_info, 0, sizeof(expressionS));
-		expression(&rhs_info);
-
-		insn_done = amo_build_insn(insn, &lhs_info, &rhs_info);
+		imm = insn.operands[2].X_add_number;
+		/* is this overflow ? */
+		if (imm & ~MASK_IMM16)
+			/* pool ? */
+			as_bad ("16-bit immediate must be in the range -32768 to 32767.");
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
+		binary |= imm & MASK_IMM16;
+	}
+	else if (param == INSN_TYPE_REGISTER)
+	{
+		binary |= ((insn.operands[2].X_add_number & MASK_REGISTER) << 16);
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
 	}
 	else
 	{
-		insn_done = amo_build_insn(insn, &lhs_info, 0);
+		/* impossible ! */
+		abort ();
 	}
 
-	if (!insn_done)
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+void
+emit_not (unsigned char opcode, int param)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	if (param == INSN_TYPE_IMMEDIATE)
 	{
-		as_fatal(_("could not build instruction"));
+		imm = insn.operands[1].X_add_number;
+		/* is this overflow ? */
+		if (imm & ~MASK_IMM16)
+			as_bad ("16-bit immediate must be in the range %hd to %hd.", 0x8000, 0x7fff);
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
+		binary |= imm & MASK_IMM16;
+	}
+	else if (param == INSN_TYPE_REGISTER)
+	{
+		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
 	}
 	else
 	{
-		amo_emit_insn(insn, &lhs_info, &rhs_info);
-		printf(" written instruction\n");
+		/* impossible ! */
+		abort ();
 	}
+
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-/* this gets invoked in case 'md_parse_name' has failed */
-symbolS *md_undefined_symbol (char *name)
+void
+emit_mov (unsigned char opcode, int param)
 {
-	as_bad("undefined symbol '%s'\n", name);
-	return 0;
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+	if (param == INSN_TYPE_IMMEDIATE)
+	{
+		imm = insn.operands[1].X_add_number;
+		/* is this overflow ? */
+		if (imm & ~MASK_IMM21)
+			as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+		binary |= imm & MASK_IMM21;
+	}
+	else if (param == INSN_TYPE_REGISTER)
+	{
+		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
+	}
+	else
+	{
+		/* impossible ! */
+		abort ();
+	}
+
+	/* literal pool */
+
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+table_t instab[] = {
+	{ "nop", { { { 0, {  } }, emit_nop, 0b000000, 0 } } },
+	{ "add", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000000, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000001, INSN_TYPE_REGISTER } } },
+	{ "adc", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000010, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000011, INSN_TYPE_REGISTER } } },
+	{ "sub", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000100, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000101, INSN_TYPE_REGISTER } } },
+	{ "and", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000110, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000111, INSN_TYPE_REGISTER } } },
+	{ "or", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001000, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001001, INSN_TYPE_REGISTER } } },
+	{ "xor", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001010, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001011, INSN_TYPE_REGISTER } } },
+	{ "not", { { { 2, { O_register, O_constant } }, emit_not, 0b001100, INSN_TYPE_IMMEDIATE },
+			   { { 2, { O_register, O_register } }, emit_not, 0b001101, INSN_TYPE_REGISTER } } },
+	{ "lsl", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001110, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001111, INSN_TYPE_REGISTER } } },
+	{ "lsr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010000, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010001, INSN_TYPE_REGISTER } } },
+	{ "asr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010010, INSN_TYPE_IMMEDIATE },
+			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010011, INSN_TYPE_REGISTER } } },
+	{ "mov", { { { 2, { O_register, O_constant } }, emit_mov, 0b010100, INSN_TYPE_IMMEDIATE },
+			   { { 2, { O_register, O_register } }, emit_mov, 0b010101, INSN_TYPE_REGISTER } } }
+};
+
+static table_t *
+insn_search (const char *name)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE (instab); i++)
+	{
+		if (!strcmp (instab[i].name, name))
+			return &instab[i];
+	}
+
+	return NULL;
+}
+
+void
+md_assemble(char *str)
+{
+	table_t *insp;
+	int i, j;
+
+	memset (&insn, 0, sizeof (struct amo_instruction));
+
+	str = parse_mnemonic (str);
+	str = parse_operands (str);
+
+	insp = insn_search (insn.name);
+	if (!insp)
+	{
+		as_bad ("unknown instruction '%s'", insn.name);
+		return ;
+	}
+	for (i = 0; i < OPERATION_PER_INSTRUCTION_MAX; i++)
+	{
+		if (!insp->operations[i].f || insn.number != insp->operations[i].condition.number)
+			/* skip */
+			continue;
+
+		for (j = 0; j < insp->operations[i].condition.number; j++)
+			if (insn.operands[j].X_op != insp->operations[i].condition.types[j])
+				break;
+		if (j == insp->operations[i].condition.number)
+		{
+			insp->operations[i].f (insp->operations[i].opcode, insp->operations[i].parameter);
+			/* matched ! */
+			break;
+		}
+	}
+	if (i == OPERATION_PER_INSTRUCTION_MAX)
+		as_bad ("invalid usage: '%s'", insn.name);
+}
+
+symbolS *
+md_undefined_symbol (char *name ATTRIBUTE_UNUSED)
+{
+	/* treat a symbol as extern if assembler finds undefined symbol */
+	return NULL;
 }
 
 /* again, no floating point exptressions available */
@@ -468,7 +596,7 @@ void md_apply_fix(fixS *fixp, valueT *val, segT seg)
 	if (0 == fixp->fx_addsy && 0 == fixp->fx_pcrel)
 	{
 		buf = fixp->fx_frag->fr_literal + fixp->fx_where;
-		if (BFD_RELOC_AMO_RELATIVE == fixp->fx_r_type)
+		if (BFD_RELOC_AMO_PCREL == fixp->fx_r_type)
 		{
 			bfd_put_32(stdoutput, *val, buf);
 			fixp->fx_done = 1;

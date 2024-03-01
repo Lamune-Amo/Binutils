@@ -1,10 +1,7 @@
-/* Disassembler interface for targets using CGEN. -*- C -*-
-   CGEN: Cpu tools GENerator
+/* amo-dis.c -- Disassembler interface for AMO
+   Copyright (C) 2000-2024 Free Software Foundation, Inc.
 
-   THIS FILE IS MACHINE GENERATED WITH CGEN.
-   - the resultant file is machine generated, cgen-dis.in isn't
-
-   Copyright (C) 1996-2023 Free Software Foundation, Inc.
+   Author: Yechan Hong <yechan0815@naver.com>
 
    This file is part of libopcodes.
 
@@ -19,20 +16,17 @@
    License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software Foundation, Inc.,
-   51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
+   along with this file; see the file COPYING.  If not, write to the Free
+   Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA
+   02110-1301, USA.  */
 
 #include "sysdep.h"
 #include "opcode/amo.h"
 #include "disassemble.h"
 #include "bfd.h"
-
 #include <stdio.h>
-#include <assert.h>
 
-#define MAX_INSN_STRING_LENGTH 42
-#define HEX_DATA_STRING_POS 46
-
+/*
 static void amo_decode_insn(char insn_buf[AMO_BYTES_SLOT_INSTRUCTION],
                             amo_slot_insn *insn)
 {
@@ -75,7 +69,6 @@ static void amo_pad_string(char str[MAX_INSN_STRING_LENGTH],
       str[size] = 0;
    }
 }
-
 static void amo_print_insn(amo_slot_insn *insn)
 {
    assert(insn != 0);
@@ -171,9 +164,36 @@ static void amo_print_insn(amo_slot_insn *insn)
    amo_pad_string(insn_buf, HEX_DATA_STRING_POS);
    printf("%s", insn_buf);
 }
+*/
+
+struct amo_instruction_dec
+{
+	/* mnemonic */
+	char name[MNEMONIC_LENGTH_MAX];
+
+	unsigned int opcode;
+
+	/* total number of opernad */
+	unsigned char number;
+};
 
 int print_insn_amo(bfd_vma addr, disassemble_info *info)
 {
+	unsigned char buf[BYTES_PER_INSTRUCTION];
+	struct amo_instruction_dec insn_dec;
+	unsigned int binary;
+
+	memset (&insn_dec, 0, sizeof (struct amo_instruction_dec));
+	if (info->read_memory_func (addr, (bfd_byte *) buf, BYTES_PER_INSTRUCTION, info))
+	{
+		info->fprintf_func (info->stream, "Error: failed to read binary.\n");
+		return -1;
+	}	
+	binary = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
+	insn_dec.opcode = (binary >> 26);	
+
+	printf ("%02x %d\t", insn_dec.opcode, 0);
+   /*
    int bytes_read = 0;
 
    char insn_buf[AMO_BYTES_SLOT_INSTRUCTION];
@@ -193,7 +213,9 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
    bytes_read = AMO_BYTES_SLOT_INSTRUCTION;
 
    amo_decode_insn(insn_buf, &insn);
+   */
 
+/*
    if (insn.pad)
    {
       addr += AMO_BYTES_SLOT_INSTRUCTION;
@@ -208,8 +230,12 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
 
       bytes_read += AMO_BYTES_SLOT_IMMEDIATE;
    }
+*/
 
+/*
    amo_print_insn(&insn);
 
    return bytes_read;
+   */
+  return 4;
 }
