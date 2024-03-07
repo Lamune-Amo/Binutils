@@ -24,10 +24,6 @@
 #include "bfd.h"
 #include "opcode/amo.h"
 
-#define OPFUNCS(name) amo_opfunc_t name##_opfuncs[] = {
-#define ENDOPFUNCS };
-#define FUNCX(mnemonic) { {
-#define ENDFUNCX } },
 #define ENTRY(func, p) { func, p },
 
 /* command line option */
@@ -472,58 +468,58 @@ emit_mov (unsigned char opcode, int param)
 
 	/* literal pool */
 
-	md_number_to_chars(frag, 0x42424242, BYTES_PER_INSTRUCTION);
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 OPFUNCS(amo)
 
-FUNCX(nop)
+FUNC(nop)
 	ENTRY(emit_nop, TYPE_NONE)
-ENDFUNCX
-FUNCX(add)
+ENDFUNC
+FUNC(add)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(adc)
+ENDFUNC
+FUNC(adc)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(sub)
+ENDFUNC
+FUNC(sub)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(and)
+ENDFUNC
+FUNC(and)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(or)
+ENDFUNC
+FUNC(or)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(xor)
+ENDFUNC
+FUNC(xor)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(not)
+ENDFUNC
+FUNC(not)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(lsl)
+ENDFUNC
+FUNC(lsl)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(lsr)
+ENDFUNC
+FUNC(lsr)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(asr)
+ENDFUNC
+FUNC(asr)
     ENTRY(emit_arithmetic, TYPE_IMM)
 	ENTRY(emit_arithmetic, TYPE_REG)
-ENDFUNCX
-FUNCX(mov)
+ENDFUNC
+FUNC(mov)
     ENTRY(emit_mov, TYPE_IMM)
 	ENTRY(emit_mov, TYPE_REG)
-ENDFUNCX
+ENDFUNC
 
 ENDOPFUNCS
 
@@ -667,8 +663,4 @@ int md_estimate_size_before_relax(fragS *fragp, asection *seg)
 }
 
 /* clean up */
-#undef OPFUNCS
-#undef ENDOPFUNCS
-#undef FUNCX
-#undef ENDFUNCX
 #undef ENTRY

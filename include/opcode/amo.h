@@ -15,6 +15,19 @@
 
 /* mnemonic */
 #define MNEMONIC_LENGTH_MAX 10
+#define DISASSEMBLE_DECODE_LENGTH 32
+
+#define IS_BIG_ENDIAN (!(union { uint16_t u16; unsigned char u8; }){ .u16 = 1 }.u8)
+
+#define OPCODESX(name) amo_opcode_t name##_opcodes[] = {
+#define ENDOPCODESX };
+#define OPX(mnemonic) { #mnemonic, {
+#define ENDOPX } },
+
+#define OPFUNCS(name) amo_opfunc_t name##_opfuncs[] = {
+#define ENDOPFUNCS };
+#define FUNC(mnemonic) { {
+#define ENDFUNC } },
 
 /* the instruction executor can receive the following macros as parameter */
 #define TYPE_NONE -1

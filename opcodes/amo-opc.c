@@ -33,10 +33,6 @@
 #define RRR { 3, { REG, REG, REG } }
 #define RRC { 3, { REG, REG, CONST } }
 
-#define OPCODESX(name) amo_opcode_t name##_opcodes[] = {
-#define ENDOPCODESX };
-#define OPX(mnemonic) { #mnemonic, {
-#define ENDOPX } },
 #define ENTRY(opcode, cond) { cond, opcode },
 
 OPCODESX(amo)
@@ -102,9 +98,4 @@ unsigned int amo_opcodes_size = ARRAY_SIZE (amo_opcodes);
 #undef RC
 #undef RRR
 #undef RRC
-#undef OPCODESX
-#undef ENDOPCODESX
-#undef OPX
-#undef ENDOPX
 #undef ENTRY
-

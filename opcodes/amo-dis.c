@@ -26,227 +26,160 @@
 #include "bfd.h"
 #include <stdio.h>
 
-/*
-static void amo_decode_insn(char insn_buf[AMO_BYTES_SLOT_INSTRUCTION],
-                            amo_slot_insn *insn)
-{
-   assert(insn != 0);
-
-   insn->dst = insn_buf[0] & 0x3f;
-   insn->src1 = ((insn_buf[1] << 2) & 0x3c) | ((insn_buf[0] >> 6) & 0x3);
-   insn->src0 = ((insn_buf[2] << 4) & 0x30) | ((insn_buf[1] >> 4) & 0xf);
-   insn->admode = (insn_buf[2] >> 2) & 0x3f;
-   insn->opcode = insn_buf[3] & 0x7f;
-   insn->pad = (insn_buf[3] >> 7) & 0x1;
-}
-
-static void amo_decode_immv(char imm_buf[AMO_BYTES_SLOT_IMMEDIATE],
-                            amo_slot_insn *insn)
-{
-   assert(4 == AMO_BYTES_SLOT_IMMEDIATE);
-
-   int i;
-   char *c = (char *)(&insn->immv);
-
-   for (i = 0; i < AMO_BYTES_SLOT_IMMEDIATE; ++i)
-   {
-      *(c++) = imm_buf[i];
-   }
-}
-
-static void amo_pad_string(char str[MAX_INSN_STRING_LENGTH],
-                           const unsigned size)
-{
-   int i, len = strlen(str);
-
-   if (len < size)
-   {
-      for (i = len; i < size; ++i)
-      {
-         str[i] = ' ';
-      }
-
-      str[size] = 0;
-   }
-}
-static void amo_print_insn(amo_slot_insn *insn)
-{
-   assert(insn != 0);
-
-   char insn_buf[MAX_INSN_STRING_LENGTH];
-
-   switch (insn->opcode)
-   {
-      case OP_MOV:
-      {
-         if (AM_01001 == insn->admode)
-         {
-            sprintf(insn_buf, "r%d = r%d", insn->dst, insn->src0);
-         }
-         else if (AM_01000 == insn->admode)
-         {
-            sprintf(insn_buf, "r%d = r%d", insn->dst, insn->immv);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'mov'");
-         break;
-      }
-
-      case OP_ADD:
-      {
-         if (AM_01011 == insn->admode)
-         {
-            sprintf(insn_buf, "r%d = r%d + r%d", insn->dst, insn->src0, insn->src1);
-         }
-         else if (AM_01010 == insn->admode)
-         {
-            sprintf(insn_buf, "r%d = r%d + %d", insn->dst, insn->src0, insn->immv);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'add'");
- 
-         break;
-      }
-
-      case OP_LOAD:
-      {
-         if (AM_01001 == insn->admode)
-         {
-            sprintf(insn_buf, "r%d = port32[r%d]", insn->dst, insn->src0);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'load'");
-
-         break;
-      }
-
-      case OP_STORE:
-      {
-         if (AM_01001 == insn->admode)
-         {
-            sprintf(insn_buf, "port32[r%d] = r%d", insn->src0, insn->dst);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'store'");
-
-         break;
-      }
-
-      case OP_JUMP:
-      {
-         if (AM_01001 == insn->admode)
-         {
-            sprintf(insn_buf, "jump (r%d)", insn->dst);
-         }
-         else if (AM_01000 == insn->admode)
-         {
-            sprintf(insn_buf, "jump (%d)", insn->immv);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'jump'");
-         break;
-      }
-
-      case OP_JUMP_REF:
-      {
-         if (AM_01001 == insn->admode)
-         {
-            sprintf(insn_buf, "jrel (r%d)", insn->dst);
-         }
-         else if (AM_01000 == insn->admode)
-         {
-            sprintf(insn_buf, "jrel (%d)", insn->immv);
-         }
-         else sprintf(insn_buf, "Bad addressing mode for 'jrel'");
-         break;
-      }
-
-      default:
-         sprintf(insn_buf, "Unsupported opcode %d", insn->opcode);
-         break;
-   }
-
-   amo_pad_string(insn_buf, HEX_DATA_STRING_POS);
-   printf("%s", insn_buf);
-}
-*/
+#define DECFUNCS(name) amo_decfunc_t name##_decfuncs[] = {
+#define ENDDECFUNCS };
+#define DECFUNC(mnemonic) { {
+#define ENDDECFUNC } },
+#define ENTRY(func, p) { func, p },
 
 struct amo_instruction_dec
 {
-	/* mnemonic */
 	char name[MNEMONIC_LENGTH_MAX];
-
-	unsigned int opcode;
-
-	/* total number of opernad */
-	unsigned char number;
+	unsigned int binary;
+	unsigned char opcode;
 };
+
+typedef struct amo_decfunc
+{
+	struct
+	{
+		void (*f)(int param);
+		int parameter;
+	} operations[OPERATION_PER_INSTRUCTION_MAX];
+} amo_decfunc_t;
+
+static char buf[DISASSEMBLE_DECODE_LENGTH + 1];
+static struct amo_instruction_dec insn_dec;
+
+void dec_nop (int param)
+{
+	sprintf (buf, "nop");
+}
+
+void dec_arithmetic (int type)
+{
+	unsigned int src, dst, opn;
+	unsigned short imm;
+
+	src = (insn_dec.binary >> 21) & MASK_REGISTER;
+	if (type == TYPE_IMM)
+	{
+		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM16;
+
+		sprintf (buf, "%-5sr%d, r%d, $0x%hx", insn_dec.name, dst, src, imm);
+	}
+	else if (type == TYPE_REG)
+	{
+		opn = (insn_dec.binary >> 16) & MASK_REGISTER;
+		dst = (insn_dec.binary >> 11) & MASK_REGISTER;
+
+		sprintf (buf, "%-5sr%d, r%d, r%d", insn_dec.name, dst, src, opn);
+	}
+}
+
+void dec_not (int type)
+{
+	sprintf (buf, "mov");
+}
+
+void dec_mov (int type)
+{
+	sprintf (buf, "mov");
+}
+
+DECFUNCS(amo)
+
+DECFUNC(nop)
+	ENTRY(dec_nop, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(add)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(adc)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(sub)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(and)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(or)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(xor)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(not)
+	ENTRY(dec_not, TYPE_IMM)
+	ENTRY(dec_not, TYPE_REG)
+ENDDECFUNC
+DECFUNC(lsl)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(lsr)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(asr)
+	ENTRY(dec_arithmetic, TYPE_IMM)
+	ENTRY(dec_arithmetic, TYPE_REG)
+ENDDECFUNC
+DECFUNC(mov)
+	ENTRY(dec_mov, TYPE_IMM)
+	ENTRY(dec_mov, TYPE_REG)
+ENDDECFUNC
+
+ENDDECFUNCS
 
 int print_insn_amo(bfd_vma addr, disassemble_info *info)
 {
-	unsigned char buf[BYTES_PER_INSTRUCTION];
-	struct amo_instruction_dec insn_dec;
-	unsigned int binary;
+	unsigned char b[BYTES_PER_INSTRUCTION];
 	unsigned int i, j;
 
+	memset (buf, 0, sizeof (buf));
 	memset (&insn_dec, 0, sizeof (struct amo_instruction_dec));
-	if (info->read_memory_func (addr, (bfd_byte *) buf, BYTES_PER_INSTRUCTION, info))
+	if (info->read_memory_func (addr, (bfd_byte *) b, BYTES_PER_INSTRUCTION, info))
 	{
 		info->fprintf_func (info->stream, "Error: failed to read binary.\n");
 		return -1;
 	}	
-	binary = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
-	insn_dec.opcode = (binary >> 26);	
+	insn_dec.binary = (b[3] << 24) | (b[2] << 16) | (b[1] << 8) | b[0];
+	insn_dec.opcode = (insn_dec.binary >> 26);
 
 	for (i = 0; i < amo_opcodes_size; i++)
 	{
-      for (j = 0; j < OPERATION_PER_INSTRUCTION_MAX; j++)
-      {
-         amo_opcodes[i].operations[j].opcode;
-      }
-   }
+		for (j = 0; j < OPERATION_PER_INSTRUCTION_MAX; j++)
+		{
+			if (!amo_decfuncs[i].operations[j].f)
+				break;
+			if (amo_opcodes[i].operations[j].opcode == insn_dec.opcode)
+				goto matched;
+		}
+	}
 
-	printf ("nop\t");
+	sprintf (buf, "unsupported opcode");
+	goto end;
 
-   return 4;
-   
-   /*
-   int bytes_read = 0;
+matched:
+	strcpy (insn_dec.name, amo_opcodes[i].name);
+	amo_decfuncs[i].operations[j].f (amo_decfuncs[i].operations[j].parameter);
 
-   char insn_buf[AMO_BYTES_SLOT_INSTRUCTION];
-   char imm_buf[AMO_BYTES_SLOT_IMMEDIATE];
+end:
+	for (i = strlen (buf); i < DISASSEMBLE_DECODE_LENGTH; i++)
+		buf[i] = ' ';
+	printf ("%s", buf);
 
-   amo_slot_insn insn;
-
-   memset(&insn, 0, sizeof(amo_slot_insn));
-
-   if ((*info->read_memory_func)(addr, insn_buf, AMO_BYTES_SLOT_INSTRUCTION, info))
-   {
-      (*info->fprintf_func)(info->stream, "Error: attept to read more instruction bytes (%d) than available (%d)\n",
-      AMO_BYTES_SLOT_INSTRUCTION, info->buffer_length);
-      return -1;
-   }
-
-   bytes_read = AMO_BYTES_SLOT_INSTRUCTION;
-
-   amo_decode_insn(insn_buf, &insn);
-   */
-
-/*
-   if (insn.pad)
-   {
-      addr += AMO_BYTES_SLOT_INSTRUCTION;
-
-      if ((*info->read_memory_func)(addr, imm_buf, AMO_BYTES_SLOT_IMMEDIATE, info))
-      {
-         (*info->fprintf_func)(info->stream, "Error: attept to read more immeditate bytes (%d) than available (%d)\n",
-         AMO_BYTES_SLOT_INSTRUCTION, info->buffer_length);
-         return -1;
-      }
-      amo_decode_immv(imm_buf, &insn);
-
-      bytes_read += AMO_BYTES_SLOT_IMMEDIATE;
-   }
-*/
-
-/*
-   amo_print_insn(&insn);
-
-   return bytes_read;
-   */
+	return BYTES_PER_INSTRUCTION;
 }
+
+/* clean up */
+#undef ENTRY
