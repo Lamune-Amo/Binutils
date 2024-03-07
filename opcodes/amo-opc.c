@@ -24,57 +24,82 @@
 
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
-#define RRR
-#define RRC
-#define RRS
+#define CONST 2
+#define REG 5
 
-#define O_constant 2
-#define O_register 5
+#define N { 0, {  } }
+#define RR { 2, { REG, REG } }
+#define RC { 2, { REG, CONST } }
+#define RRR { 3, { REG, REG, REG } }
+#define RRC { 3, { REG, REG, CONST } }
 
-static void
-emit_nop (unsigned char opcode, int param)
-{
-}
+#define OPCODESX(name) amo_opcode_t name##_opcodes[] = {
+#define ENDOPCODESX };
+#define OPX(mnemonic) { #mnemonic, {
+#define ENDOPX } },
+#define ENTRY(opcode, cond) { cond, opcode },
 
-static void
-emit_arithmetic (unsigned char opcode, int param)
-{
-}
+OPCODESX(amo)
 
-static void
-emit_not (unsigned char opcode, int param)
-{
-}
+OPX(nop)
+	ENTRY(0b000000, N)
+ENDOPX
+OPX(add)
+	ENTRY(0b000000, RRC)
+	ENTRY(0b000001, RRR)
+ENDOPX
+OPX(adc)
+	ENTRY(0b000010, RRC)
+	ENTRY(0b000011, RRR)
+ENDOPX
+OPX(sub)
+	ENTRY(0b000100, RRC)
+	ENTRY(0b000101, RRR)
+ENDOPX
+OPX(and)
+	ENTRY(0b000110, RRC)
+	ENTRY(0b000111, RRR)
+ENDOPX
+OPX(or)
+	ENTRY(0b001000, RRC)
+	ENTRY(0b001001, RRR)
+ENDOPX
+OPX(xor)
+	ENTRY(0b001010, RRC)
+	ENTRY(0b001011, RRR)
+ENDOPX
+OPX(not)
+	ENTRY(0b001100, RC)
+	ENTRY(0b001101, RR)
+ENDOPX
+OPX(lsl)
+	ENTRY(0b001110, RRC)
+	ENTRY(0b001111, RRR)
+ENDOPX
+OPX(lsr)
+	ENTRY(0b010000, RRC)
+	ENTRY(0b010001, RRR)
+ENDOPX
+OPX(asr)
+	ENTRY(0b010010, RRC)
+	ENTRY(0b010011, RRR)
+ENDOPX
 
-static void
-emit_mov (unsigned char opcode, int param)
-{
-}
+/* d */
+OPX(mov)
+	ENTRY(0b010100, RC)
+	ENTRY(0b010101, RR)
+ENDOPX
 
-amo_opcode_t amo_opcodes[] = {
-	{ "nop", { { { 0, {  } }, emit_nop, 0b000000, 0 } } },
-	{ "add", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000001, INSN_TYPE_REGISTER } } },
-	{ "adc", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000011, INSN_TYPE_REGISTER } } },
-	{ "sub", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000100, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000101, INSN_TYPE_REGISTER } } },
-	{ "and", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000110, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000111, INSN_TYPE_REGISTER } } },
-	{ "or", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001001, INSN_TYPE_REGISTER } } },
-	{ "xor", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001011, INSN_TYPE_REGISTER } } },
-	{ "not", { { { 2, { O_register, O_constant } }, emit_not, 0b001100, INSN_TYPE_IMMEDIATE },
-			   { { 2, { O_register, O_register } }, emit_not, 0b001101, INSN_TYPE_REGISTER } } },
-	{ "lsl", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001110, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001111, INSN_TYPE_REGISTER } } },
-	{ "lsr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010001, INSN_TYPE_REGISTER } } },
-	{ "asr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010011, INSN_TYPE_REGISTER } } },
-	{ "mov", { { { 2, { O_register, O_constant } }, emit_mov, 0b010100, INSN_TYPE_IMMEDIATE },
-			   { { 2, { O_register, O_register } }, emit_mov, 0b010101, INSN_TYPE_REGISTER } } }
-};
+ENDOPCODESX
 
 unsigned int amo_opcodes_size = ARRAY_SIZE (amo_opcodes);
+
+/* clean up */
+#undef CONST
+#undef REG
+#undef RR
+#undef RC
+#undef RRR
+#undef RRC
+

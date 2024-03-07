@@ -41,12 +41,8 @@ typedef struct
 	{	
 		/* condition */
 		operand_cond_t condition;
-		/* operation function */
-		void (*f)(unsigned char opcode, int param);
 		/* opcode */
 		unsigned char opcode;
-		/* operation parameter */
-		int parameter;
 	} operations[OPERATION_PER_INSTRUCTION_MAX];
 } amo_opcode_t;
 
@@ -54,6 +50,7 @@ extern amo_opcode_t amo_opcodes[];
 extern unsigned int amo_opcodes_size;
 
 /* the instruction executor can receive the following macros as parameter */
+#define INSN_TYPE_NONE -1
 #define INSN_TYPE_IMMEDIATE 0
 #define INSN_TYPE_REGISTER 1
 

@@ -60,6 +60,17 @@ struct amo_instruction
 	expressionS operands[OPERAND_PER_INSTRUCTION_MAX];
 };
 
+typedef struct amo_opfunc
+{
+	struct
+	{
+		/* operation function */
+		void (*f)(unsigned char opcode, int param);
+		/* operation parameter */
+		int parameter;
+	} operations[OPERATION_PER_INSTRUCTION_MAX];
+} amo_opfunc_t;
+
 struct amo_instruction insn;
 
 int
@@ -340,7 +351,7 @@ static void amo_emit_insn(void *insn,
 	}
 }*/
 
-static void
+void
 emit_nop (unsigned char opcode, int param)
 {
 	char *frag;
@@ -458,6 +469,23 @@ emit_mov (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
+amo_opfunc_t amo_opfuncs[] = {
+	{ emit_nop, 0 },
+	/*
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
+	{ { emit_mov, 0 }, { emit_mov, 1 } },
+	*/
+};
+
 static amo_opcode_t *
 insn_search (const char *name)
 {
@@ -491,8 +519,10 @@ md_assemble(char *str)
 	}
 	for (i = 0; i < OPERATION_PER_INSTRUCTION_MAX; i++)
 	{
-		if (!insp->operations[i].f || insn.number != insp->operations[i].condition.number)
+		/*
+		if (!insp->operations[i].f || insn.number != insp->operations[i].condition.number) */
 			/* skip */
+		/*
 			continue;
 
 		for (j = 0; j < insp->operations[i].condition.number; j++)
@@ -501,12 +531,16 @@ md_assemble(char *str)
 		if (j == insp->operations[i].condition.number)
 		{
 			insp->operations[i].f (insp->operations[i].opcode, insp->operations[i].parameter);
+			*/
 			/* matched ! */
+		/*
 			break;
 		}
 	}
 	if (i == OPERATION_PER_INSTRUCTION_MAX)
 		as_bad ("invalid usage: '%s'", insn.name);
+		*/
+	}
 }
 
 symbolS *
