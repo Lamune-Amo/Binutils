@@ -102,4 +102,9 @@ unsigned int amo_opcodes_size = ARRAY_SIZE (amo_opcodes);
 #undef RC
 #undef RRR
 #undef RRC
+#undef OPCODESX
+#undef ENDOPCODESX
+#undef OPX
+#undef ENDOPX
+#undef ENTRY
 

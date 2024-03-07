@@ -24,6 +24,12 @@
 #include "bfd.h"
 #include "opcode/amo.h"
 
+#define OPFUNCS(name) amo_opfunc_t name##_opfuncs[] = {
+#define ENDOPFUNCS };
+#define FUNCX(mnemonic) { {
+#define ENDFUNCX } },
+#define ENTRY(func, p) { func, p },
+
 /* command line option */
 const char *md_shortopts = "";
 struct option md_longopts[] = {};
@@ -351,7 +357,7 @@ static void amo_emit_insn(void *insn,
 	}
 }*/
 
-void
+static void
 emit_nop (unsigned char opcode, int param)
 {
 	char *frag;
@@ -374,7 +380,7 @@ emit_arithmetic (unsigned char opcode, int param)
 
 	binary |= (opcode << 26);
 	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
-	if (param == INSN_TYPE_IMMEDIATE)
+	if (param == TYPE_IMM)
 	{
 		imm = insn.operands[2].X_add_number;
 		/* is this overflow ? */
@@ -384,7 +390,7 @@ emit_arithmetic (unsigned char opcode, int param)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
-	else if (param == INSN_TYPE_REGISTER)
+	else if (param == TYPE_REG)
 	{
 		binary |= ((insn.operands[2].X_add_number & MASK_REGISTER) << 16);
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
@@ -398,7 +404,7 @@ emit_arithmetic (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-void
+static void
 emit_not (unsigned char opcode, int param)
 {
 	unsigned long binary;
@@ -410,7 +416,7 @@ emit_not (unsigned char opcode, int param)
 	binary = 0;
 
 	binary |= (opcode << 26);
-	if (param == INSN_TYPE_IMMEDIATE)
+	if (param == TYPE_IMM)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
@@ -419,7 +425,7 @@ emit_not (unsigned char opcode, int param)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
-	else if (param == INSN_TYPE_REGISTER)
+	else if (param == TYPE_REG)
 	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
@@ -433,7 +439,7 @@ emit_not (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-void
+static void
 emit_mov (unsigned char opcode, int param)
 {
 	unsigned long binary;
@@ -446,7 +452,7 @@ emit_mov (unsigned char opcode, int param)
 
 	binary |= (opcode << 26);
 	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
-	if (param == INSN_TYPE_IMMEDIATE)
+	if (param == TYPE_IMM)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
@@ -454,7 +460,7 @@ emit_mov (unsigned char opcode, int param)
 			as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
 		binary |= imm & MASK_IMM21;
 	}
-	else if (param == INSN_TYPE_REGISTER)
+	else if (param == TYPE_REG)
 	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 	}
@@ -466,25 +472,60 @@ emit_mov (unsigned char opcode, int param)
 
 	/* literal pool */
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars(frag, 0x42424242, BYTES_PER_INSTRUCTION);
 }
 
-amo_opfunc_t amo_opfuncs[] = {
-	{ emit_nop, 0 },
-	/*
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_arithmetic, 0 }, { emit_arithmetic, 1 } },
-	{ { emit_mov, 0 }, { emit_mov, 1 } },
-	*/
-};
+OPFUNCS(amo)
+
+FUNCX(nop)
+	ENTRY(emit_nop, TYPE_NONE)
+ENDFUNCX
+FUNCX(add)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(adc)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(sub)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(and)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(or)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(xor)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(not)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(lsl)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(lsr)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(asr)
+    ENTRY(emit_arithmetic, TYPE_IMM)
+	ENTRY(emit_arithmetic, TYPE_REG)
+ENDFUNCX
+FUNCX(mov)
+    ENTRY(emit_mov, TYPE_IMM)
+	ENTRY(emit_mov, TYPE_REG)
+ENDFUNCX
+
+ENDOPFUNCS
 
 static amo_opcode_t *
 insn_search (const char *name)
@@ -504,6 +545,7 @@ void
 md_assemble(char *str)
 {
 	amo_opcode_t *insp;
+	amo_opfunc_t *fp;
 	int i, j;
 
 	memset (&insn, 0, sizeof (struct amo_instruction));
@@ -512,6 +554,7 @@ md_assemble(char *str)
 	str = parse_operands (str);
 
 	insp = insn_search (insn.name);
+	fp = amo_opfuncs + (unsigned int) (insp - amo_opcodes);
 	if (!insp)
 	{
 		as_bad ("unknown instruction '%s'", insn.name);
@@ -519,10 +562,8 @@ md_assemble(char *str)
 	}
 	for (i = 0; i < OPERATION_PER_INSTRUCTION_MAX; i++)
 	{
-		/*
-		if (!insp->operations[i].f || insn.number != insp->operations[i].condition.number) */
+		if (!fp->operations[i].f || insn.number != insp->operations[i].condition.number)
 			/* skip */
-		/*
 			continue;
 
 		for (j = 0; j < insp->operations[i].condition.number; j++)
@@ -530,17 +571,13 @@ md_assemble(char *str)
 				break;
 		if (j == insp->operations[i].condition.number)
 		{
-			insp->operations[i].f (insp->operations[i].opcode, insp->operations[i].parameter);
-			*/
 			/* matched ! */
-		/*
+			fp->operations[i].f (insp->operations[i].opcode, fp->operations[i].parameter);
 			break;
 		}
 	}
 	if (i == OPERATION_PER_INSTRUCTION_MAX)
 		as_bad ("invalid usage: '%s'", insn.name);
-		*/
-	}
 }
 
 symbolS *
@@ -628,3 +665,10 @@ int md_estimate_size_before_relax(fragS *fragp, asection *seg)
 	as_fatal(_("unexpected call"));
 	return 0;
 }
+
+/* clean up */
+#undef OPFUNCS
+#undef ENDOPFUNCS
+#undef FUNCX
+#undef ENDFUNCX
+#undef ENTRY

@@ -16,6 +16,11 @@
 /* mnemonic */
 #define MNEMONIC_LENGTH_MAX 10
 
+/* the instruction executor can receive the following macros as parameter */
+#define TYPE_NONE -1
+#define TYPE_IMM 0
+#define TYPE_REG 1
+
 /* mask */
 #define MASK_REGISTER 0x1F
 #define MASK_IMM16 0xFFFF
@@ -48,11 +53,6 @@ typedef struct
 
 extern amo_opcode_t amo_opcodes[];
 extern unsigned int amo_opcodes_size;
-
-/* the instruction executor can receive the following macros as parameter */
-#define INSN_TYPE_NONE -1
-#define INSN_TYPE_IMMEDIATE 0
-#define INSN_TYPE_REGISTER 1
 
 /* used to define the dereference */
 #define O_dereference O_md1

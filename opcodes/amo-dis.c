@@ -182,6 +182,7 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
 	unsigned char buf[BYTES_PER_INSTRUCTION];
 	struct amo_instruction_dec insn_dec;
 	unsigned int binary;
+	unsigned int i, j;
 
 	memset (&insn_dec, 0, sizeof (struct amo_instruction_dec));
 	if (info->read_memory_func (addr, (bfd_byte *) buf, BYTES_PER_INSTRUCTION, info))
@@ -192,7 +193,17 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
 	binary = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 	insn_dec.opcode = (binary >> 26);	
 
-	printf ("%02x %s\t", insn_dec.opcode, amo_opcodes[0].name);
+	for (i = 0; i < amo_opcodes_size; i++)
+	{
+      for (j = 0; j < OPERATION_PER_INSTRUCTION_MAX; j++)
+      {
+         amo_opcodes[i].operations[j].opcode;
+      }
+   }
+
+	printf ("nop\t");
+
+   return 4;
    
    /*
    int bytes_read = 0;
@@ -238,5 +249,4 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
 
    return bytes_read;
    */
-  return 4;
 }
