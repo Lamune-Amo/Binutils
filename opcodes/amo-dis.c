@@ -192,7 +192,8 @@ int print_insn_amo(bfd_vma addr, disassemble_info *info)
 	binary = (buf[3] << 24) | (buf[2] << 16) | (buf[1] << 8) | buf[0];
 	insn_dec.opcode = (binary >> 26);	
 
-	printf ("%02x %d\t", insn_dec.opcode, 0);
+	printf ("%02x %s\t", insn_dec.opcode, amo_opcodes[0].name);
+   
    /*
    int bytes_read = 0;
 

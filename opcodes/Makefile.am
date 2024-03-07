@@ -95,6 +95,8 @@ TARGET_LIBOPCODES_CFILES = \
 	aarch64-opc-2.c \
 	alpha-dis.c \
 	alpha-opc.c \
+	amo-dis.c \
+	amo-opc.c \
 	arc-dis.c \
 	arc-ext.c \
 	arc-opc.c \

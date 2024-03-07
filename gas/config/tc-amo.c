@@ -340,24 +340,6 @@ static void amo_emit_insn(void *insn,
 	}
 }*/
 
-static int
-bit_to_integer (int value, int bit)
-{
-	if (!((value >> (bit - 1)) & 0x1))
-		return value;
-
-	switch (bit)
-	{
-		case 16:
-			return value | 0xFFFF0000;
-		case 21:
-			return value | 0xFFE00000;
-	}
-
-	/* shoudn't be called */
-	abort ();
-}
-
 static void
 emit_nop (unsigned char opcode, int param)
 {
@@ -476,41 +458,15 @@ emit_mov (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-table_t instab[] = {
-	{ "nop", { { { 0, {  } }, emit_nop, 0b000000, 0 } } },
-	{ "add", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000001, INSN_TYPE_REGISTER } } },
-	{ "adc", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000011, INSN_TYPE_REGISTER } } },
-	{ "sub", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000100, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000101, INSN_TYPE_REGISTER } } },
-	{ "and", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b000110, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b000111, INSN_TYPE_REGISTER } } },
-	{ "or", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001001, INSN_TYPE_REGISTER } } },
-	{ "xor", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001011, INSN_TYPE_REGISTER } } },
-	{ "not", { { { 2, { O_register, O_constant } }, emit_not, 0b001100, INSN_TYPE_IMMEDIATE },
-			   { { 2, { O_register, O_register } }, emit_not, 0b001101, INSN_TYPE_REGISTER } } },
-	{ "lsl", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b001110, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b001111, INSN_TYPE_REGISTER } } },
-	{ "lsr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010000, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010001, INSN_TYPE_REGISTER } } },
-	{ "asr", { { { 3, { O_register, O_register, O_constant } }, emit_arithmetic, 0b010010, INSN_TYPE_IMMEDIATE },
-			   { { 3, { O_register, O_register, O_register } }, emit_arithmetic, 0b010011, INSN_TYPE_REGISTER } } },
-	{ "mov", { { { 2, { O_register, O_constant } }, emit_mov, 0b010100, INSN_TYPE_IMMEDIATE },
-			   { { 2, { O_register, O_register } }, emit_mov, 0b010101, INSN_TYPE_REGISTER } } }
-};
-
-static table_t *
+static amo_opcode_t *
 insn_search (const char *name)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE (instab); i++)
+	for (i = 0; i < amo_opcodes_size; i++)
 	{
-		if (!strcmp (instab[i].name, name))
-			return &instab[i];
+		if (!strcmp (amo_opcodes[i].name, name))
+			return &amo_opcodes[i];
 	}
 
 	return NULL;
@@ -519,7 +475,7 @@ insn_search (const char *name)
 void
 md_assemble(char *str)
 {
-	table_t *insp;
+	amo_opcode_t *insp;
 	int i, j;
 
 	memset (&insn, 0, sizeof (struct amo_instruction));

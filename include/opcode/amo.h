@@ -1,5 +1,5 @@
-#ifndef _AMO_OPCODES_H_
-#define _AMO_OPCODES_H_
+#ifndef _AMO_OPCODE_H_
+#define _AMO_OPCODE_H_
 
 /* number of bytes required for one instruction */
 #define BYTES_PER_INSTRUCTION 4
@@ -48,9 +48,10 @@ typedef struct
 		/* operation parameter */
 		int parameter;
 	} operations[OPERATION_PER_INSTRUCTION_MAX];
-} table_t;
+} amo_opcode_t;
 
-extern table_t instab[];
+extern amo_opcode_t amo_opcodes[];
+extern unsigned int amo_opcodes_size;
 
 /* the instruction executor can receive the following macros as parameter */
 #define INSN_TYPE_IMMEDIATE 0
