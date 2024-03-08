@@ -26,11 +26,8 @@
 #include "bfd.h"
 #include <stdio.h>
 
-#define DECFUNCS(name) amo_decfunc_t name##_decfuncs[] = {
-#define ENDDECFUNCS };
-#define DECFUNC(mnemonic) { {
-#define ENDDECFUNC } },
-#define ENTRY(func, p) { func, p },
+#define ENTRY(func, p) { dec_##func, p },
+#define DECODE(name, ptype, pname) static void dec_##name (ptype pname)
 
 struct amo_instruction_dec
 {
@@ -51,12 +48,12 @@ typedef struct amo_decfunc
 static char buf[DISASSEMBLE_DECODE_LENGTH + 1];
 static struct amo_instruction_dec insn_dec;
 
-void dec_nop (int param)
+DECODE(nop, int, type)
 {
 	sprintf (buf, "nop");
 }
 
-void dec_arithmetic (int type)
+DECODE(arithmetic, int, type)
 {
 	unsigned int src, dst, opn;
 	unsigned short imm;
@@ -67,7 +64,8 @@ void dec_arithmetic (int type)
 		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
 		imm = insn_dec.binary & MASK_IMM16;
 
-		sprintf (buf, "%-5sr%d, r%d, $0x%hx", insn_dec.name, dst, src, imm);
+		sprintf (buf, "%-5sr%d, r%d, $0x%hx (%hd)", insn_dec.name, dst, src, imm, imm);
+		return ;
 	}
 	else if (type == TYPE_REG)
 	{
@@ -75,67 +73,188 @@ void dec_arithmetic (int type)
 		dst = (insn_dec.binary >> 11) & MASK_REGISTER;
 
 		sprintf (buf, "%-5sr%d, r%d, r%d", insn_dec.name, dst, src, opn);
+		return ;
 	}
+
+	/* impossible */
+	abort ();
 }
 
-void dec_not (int type)
+DECODE(not, int, type)
 {
-	sprintf (buf, "mov");
+	unsigned int src, dst;
+	unsigned short imm;
+
+	if (type == TYPE_IMM)
+	{
+		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM16;
+
+		sprintf (buf, "%-5sr%d, $0x%hx (%hd)", insn_dec.name, dst, imm, imm);
+		return ;
+	}
+	else if (type == TYPE_REG)
+	{
+		src = (insn_dec.binary >> 16) & MASK_REGISTER;
+		dst = (insn_dec.binary >> 11) & MASK_REGISTER;
+
+		sprintf (buf, "%-5sr%d, r%d", insn_dec.name, dst, src);
+		return ;
+	}
+
+	/* impossible */
+	abort ();
 }
 
-void dec_mov (int type)
+DECODE(mov, int, type)
 {
-	sprintf (buf, "mov");
+	unsigned int src, dst;
+	unsigned int imm;
+
+	dst = (insn_dec.binary >> 21) & MASK_REGISTER;
+	if (type == TYPE_IMM)
+	{
+		imm = insn_dec.binary & MASK_IMM21;
+		if ((imm >> 20))
+			imm |= 0xFFE00000;
+
+		sprintf (buf, "%-5sr%d, $0x%x (%d)", insn_dec.name, dst, imm, imm);
+		return ;
+	}
+	else if (type == TYPE_REG)
+	{
+		src = (insn_dec.binary >> 16) & MASK_REGISTER;
+
+		sprintf (buf, "%-5sr%d, r%d", insn_dec.name, dst, src);
+		return ;
+	}
+
+	/* impossible */
+	abort ();
+}
+
+DECODE(branch, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned int src, opn;
+	unsigned int imm;
+
+	src = (insn_dec.binary >> 21) & MASK_REGISTER;
+	opn = (insn_dec.binary >> 16) & MASK_REGISTER;
+
+	imm = insn_dec.binary & MASK_IMM16;
+	if ((imm >> 15))
+		imm |= 0xFFFF0000;
+
+	sprintf (buf, "%-5sr%d, r%d, $0x%x <sym+4>", insn_dec.name, src, opn, imm, imm);
+}
+
+DECODE(jump, int, type)
+{
+	unsigned int src;
+	unsigned int imm;
+
+	if (type == TYPE_IMM)
+	{
+		imm = insn_dec.binary & MASK_IMM21;
+		if ((imm >> 20))
+			imm |= 0xFFE00000;
+
+		sprintf (buf, "%-5s$0x%x (%d)", insn_dec.name, imm, imm);
+		return ;
+	}
+	else if (type == TYPE_REG)
+	{
+		src = (insn_dec.binary >> 16) & MASK_REGISTER;
+
+		sprintf (buf, "%-5sr%d", insn_dec.name, src);
+		return ;
+	}
+
+	/* impossible */
+	abort ();
+}
+
+DECODE(swi, int, type)
+{
+	unsigned int imm;
+
+	imm = insn_dec.binary & MASK_IMM8;
+
+	sprintf (buf, "%-5s$0x%x (%d)", insn_dec.name, imm, imm);
 }
 
 DECFUNCS(amo)
 
 DECFUNC(nop)
-	ENTRY(dec_nop, TYPE_NONE)
+	ENTRY(nop, TYPE_NONE)
 ENDDECFUNC
 DECFUNC(add)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(adc)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(sub)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(and)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(or)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(xor)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(not)
-	ENTRY(dec_not, TYPE_IMM)
-	ENTRY(dec_not, TYPE_REG)
+	ENTRY(not, TYPE_IMM)
+	ENTRY(not, TYPE_REG)
 ENDDECFUNC
 DECFUNC(lsl)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(lsr)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(asr)
-	ENTRY(dec_arithmetic, TYPE_IMM)
-	ENTRY(dec_arithmetic, TYPE_REG)
+	ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDDECFUNC
 DECFUNC(mov)
-	ENTRY(dec_mov, TYPE_IMM)
-	ENTRY(dec_mov, TYPE_REG)
+	ENTRY(mov, TYPE_IMM)
+	ENTRY(mov, TYPE_REG)
+ENDDECFUNC
+
+DECFUNC(beq)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(bne)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(blt)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(ble)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(jmp)
+	ENTRY(jump, TYPE_IMM)
+	ENTRY(jump, TYPE_REG)
+ENDDECFUNC
+DECFUNC(jal)
+	ENTRY(jump, TYPE_IMM)
+	ENTRY(jump, TYPE_REG)
+ENDDECFUNC
+DECFUNC(swi)
+	ENTRY(swi, TYPE_NONE)
 ENDDECFUNC
 
 ENDDECFUNCS
@@ -183,3 +302,4 @@ end:
 
 /* clean up */
 #undef ENTRY
+#undef DECODE

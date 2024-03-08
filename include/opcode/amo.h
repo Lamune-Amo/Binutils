@@ -15,7 +15,7 @@
 
 /* mnemonic */
 #define MNEMONIC_LENGTH_MAX 10
-#define DISASSEMBLE_DECODE_LENGTH 32
+#define DISASSEMBLE_DECODE_LENGTH 42
 
 #define IS_BIG_ENDIAN (!(union { uint16_t u16; unsigned char u8; }){ .u16 = 1 }.u8)
 
@@ -29,6 +29,11 @@
 #define FUNC(mnemonic) { {
 #define ENDFUNC } },
 
+#define DECFUNCS(name) amo_decfunc_t name##_decfuncs[] = {
+#define ENDDECFUNCS };
+#define DECFUNC(mnemonic) { {
+#define ENDDECFUNC } },
+
 /* the instruction executor can receive the following macros as parameter */
 #define TYPE_NONE -1
 #define TYPE_IMM 0
@@ -36,8 +41,13 @@
 
 /* mask */
 #define MASK_REGISTER 0x1F
+#define MASK_IMM8 0xFF
 #define MASK_IMM16 0xFFFF
 #define MASK_IMM21 0x1FFFFF
+#define MASK_IMM26 0x3FFFFFF
+
+/* used to define the dereference */
+#define O_dereference O_md1
 
 typedef struct
 {
@@ -66,8 +76,5 @@ typedef struct
 
 extern amo_opcode_t amo_opcodes[];
 extern unsigned int amo_opcodes_size;
-
-/* used to define the dereference */
-#define O_dereference O_md1
 
 #endif

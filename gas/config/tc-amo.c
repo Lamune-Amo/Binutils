@@ -24,7 +24,8 @@
 #include "bfd.h"
 #include "opcode/amo.h"
 
-#define ENTRY(func, p) { func, p },
+#define ENTRY(func, p) { emit_##func, p },
+#define EMIT(name, optype, opname, ptype, pname) static void emit_##name (optype opname, ptype pname)
 
 /* command line option */
 const char *md_shortopts = "";
@@ -67,7 +68,7 @@ typedef struct amo_opfunc
 	struct
 	{
 		/* operation function */
-		void (*f)(unsigned char opcode, int param);
+		void (*f)(unsigned char opcode, int type);
 		/* operation parameter */
 		int parameter;
 	} operations[OPERATION_PER_INSTRUCTION_MAX];
@@ -353,8 +354,7 @@ static void amo_emit_insn(void *insn,
 	}
 }*/
 
-static void
-emit_nop (unsigned char opcode, int param)
+EMIT(nop, unsigned char, opcode ATTRIBUTE_UNUSED, int, type ATTRIBUTE_UNUSED)
 {
 	char *frag;
 	
@@ -363,8 +363,7 @@ emit_nop (unsigned char opcode, int param)
 	md_number_to_chars(frag, 0x00000000, BYTES_PER_INSTRUCTION);
 }
 
-static void
-emit_arithmetic (unsigned char opcode, int param)
+EMIT(arithmetic, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
 	char *frag;
@@ -376,7 +375,7 @@ emit_arithmetic (unsigned char opcode, int param)
 
 	binary |= (opcode << 26);
 	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
-	if (param == TYPE_IMM)
+	if (type == TYPE_IMM)
 	{
 		imm = insn.operands[2].X_add_number;
 		/* is this overflow ? */
@@ -386,7 +385,7 @@ emit_arithmetic (unsigned char opcode, int param)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
-	else if (param == TYPE_REG)
+	else if (type == TYPE_REG)
 	{
 		binary |= ((insn.operands[2].X_add_number & MASK_REGISTER) << 16);
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
@@ -400,8 +399,7 @@ emit_arithmetic (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-static void
-emit_not (unsigned char opcode, int param)
+EMIT(not, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
 	char *frag;
@@ -412,7 +410,7 @@ emit_not (unsigned char opcode, int param)
 	binary = 0;
 
 	binary |= (opcode << 26);
-	if (param == TYPE_IMM)
+	if (type == TYPE_IMM)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
@@ -421,7 +419,7 @@ emit_not (unsigned char opcode, int param)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
-	else if (param == TYPE_REG)
+	else if (type == TYPE_REG)
 	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
@@ -435,8 +433,7 @@ emit_not (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-static void
-emit_mov (unsigned char opcode, int param)
+EMIT(mov, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
 	char *frag;
@@ -448,15 +445,15 @@ emit_mov (unsigned char opcode, int param)
 
 	binary |= (opcode << 26);
 	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
-	if (param == TYPE_IMM)
+	if (type == TYPE_IMM)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		if (imm & ~MASK_IMM21)
-			as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+		//if (imm & ~MASK_IMM21)
+		//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
 		binary |= imm & MASK_IMM21;
 	}
-	else if (param == TYPE_REG)
+	else if (type == TYPE_REG)
 	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 	}
@@ -471,54 +468,156 @@ emit_mov (unsigned char opcode, int param)
 	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
 }
 
+EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
+
+	imm = insn.operands[2].X_add_number;
+	/* is this overflow ? */
+	//if (imm & ~MASK_IMM21)
+	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+	binary |= imm & MASK_IMM16;
+
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+EMIT(jump, unsigned char, opcode, int, type)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	if (type == TYPE_IMM)
+	{
+		imm = insn.operands[0].X_add_number;
+		/* is this overflow ? */
+		//if (imm & ~MASK_IMM21)
+		//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+		binary |= imm & MASK_IMM26;
+	}
+	else if (type == TYPE_REG)
+	{
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+	}
+	else
+	{
+		/* impossible ! */
+		abort ();
+	}
+
+	/* literal pool */
+
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+
+	imm = insn.operands[0].X_add_number;
+	/* is this overflow ? */
+	//if (imm & ~MASK_IMM21)
+	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+	binary |= imm & MASK_IMM8;
+
+	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+}
+
 OPFUNCS(amo)
 
 FUNC(nop)
-	ENTRY(emit_nop, TYPE_NONE)
+	ENTRY(nop, TYPE_NONE)
 ENDFUNC
 FUNC(add)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(adc)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(sub)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(and)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(or)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(xor)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(not)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(not, TYPE_IMM)
+	ENTRY(not, TYPE_REG)
 ENDFUNC
 FUNC(lsl)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(lsr)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(asr)
-    ENTRY(emit_arithmetic, TYPE_IMM)
-	ENTRY(emit_arithmetic, TYPE_REG)
+    ENTRY(arithmetic, TYPE_IMM)
+	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(mov)
-    ENTRY(emit_mov, TYPE_IMM)
-	ENTRY(emit_mov, TYPE_REG)
+    ENTRY(mov, TYPE_IMM)
+	ENTRY(mov, TYPE_REG)
+ENDFUNC
+
+FUNC(beq)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(bne)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(blt)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(ble)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(jmp)
+    ENTRY(jump, TYPE_IMM)
+    ENTRY(jump, TYPE_REG)
+ENDFUNC
+FUNC(jal)
+    ENTRY(jump, TYPE_IMM)
+    ENTRY(jump, TYPE_REG)
+ENDFUNC
+FUNC(swi)
+    ENTRY(swi, TYPE_NONE)
 ENDFUNC
 
 ENDOPFUNCS
@@ -664,3 +763,4 @@ int md_estimate_size_before_relax(fragS *fragp, asection *seg)
 
 /* clean up */
 #undef ENTRY
+#undef EMIT

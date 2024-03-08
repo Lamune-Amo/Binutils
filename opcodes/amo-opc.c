@@ -25,13 +25,18 @@
 #define ARRAY_SIZE(a) (sizeof (a) / sizeof ((a)[0]))
 
 #define CONST 2
+#define SYM 3
 #define REG 5
 
 #define N { 0, {  } }
-#define RR { 2, { REG, REG } }
+#define C { 1, { CONST } }
+#define S { 1, { SYM } }
+#define R { 1, { REG } }
 #define RC { 2, { REG, CONST } }
-#define RRR { 3, { REG, REG, REG } }
+#define RR { 2, { REG, REG } }
 #define RRC { 3, { REG, REG, CONST } }
+#define RRS { 3, { REG, REG, SYM } }
+#define RRR { 3, { REG, REG, REG } }
 
 #define ENTRY(opcode, cond) { cond, opcode },
 
@@ -80,11 +85,33 @@ OPX(asr)
 	ENTRY(0b010010, RRC)
 	ENTRY(0b010011, RRR)
 ENDOPX
-
-/* d */
 OPX(mov)
 	ENTRY(0b010100, RC)
 	ENTRY(0b010101, RR)
+ENDOPX
+
+OPX(beq)
+	ENTRY(0b011010, RRS)
+ENDOPX
+OPX(bne)
+	ENTRY(0b011011, RRS)
+ENDOPX
+OPX(blt)
+	ENTRY(0b011100, RRS)
+ENDOPX
+OPX(ble)
+	ENTRY(0b011101, RRS)
+ENDOPX
+OPX(jmp)
+	ENTRY(0b011110, S)
+	ENTRY(0b011111, R)
+ENDOPX
+OPX(jal)
+	ENTRY(0b100000, S)
+	ENTRY(0b100001, R)
+ENDOPX
+OPX(swi)
+	ENTRY(0b100010, C)
 ENDOPX
 
 ENDOPCODESX
@@ -93,9 +120,15 @@ unsigned int amo_opcodes_size = ARRAY_SIZE (amo_opcodes);
 
 /* clean up */
 #undef CONST
+#undef SYM
 #undef REG
-#undef RR
+#undef N
+#undef C
+#undef S
+#undef R
 #undef RC
-#undef RRR
+#undef RR
 #undef RRC
+#undef RRS
+#undef RRR
 #undef ENTRY
