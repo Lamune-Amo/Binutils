@@ -82,11 +82,11 @@ static reloc_howto_type amo_elf_howto_table[] =
            1,                  /* size (0 = byte, 1 = short, 2 = long) */
            16,                 /* bit size */
            TRUE,               /* pc-relative */
-           0,                  /* bit pos */
+           0,				   /* bit pos */
            complain_overflow_bitfield, /* complain on overflow */
            bfd_elf_generic_reloc, /* special function */
            "R_AMO_PCREL",      /* amo */
-           FALSE,              /* partial inplace */
+           TRUE,              /* partial inplace */
            0x0000ffff,         /* src mask */
            0x0000ffff,         /* dst mask */
            TRUE                /* pc-relative offset */

@@ -304,63 +304,13 @@ parse_operands (char *str)
 	return str;
 }
 
-/*
-static void amo_emit_insn(void *insn,
-						  expressionS *lhs,
-						  expressionS *rhs)
-{
-	gas_assert(insn != 0);
-
-	int e_insn = 0;
-	char *frag = frag_more(AMO_BYTES_SLOT_INSTRUCTION);
-	int where;
-
-	e_insn |= (insn->pad << 31);
-	e_insn |= ((insn->opcode & 0x7F) << 24);
-	e_insn |= ((insn->admode & 0x3F) << 18);
-	e_insn |= ((insn->src0 & 0x3F) << 12);
-	e_insn |= ((insn->src1 & 0x3F) << 6);
-	e_insn |= (insn->dst & 0x3F);
-
-	printf("writing instruction data: %08x\n", e_insn);
-
-	md_number_to_chars(frag, e_insn, AMO_BYTES_SLOT_INSTRUCTION);
-
-	if (insn->pad)
-	{
-		frag = frag_more(AMO_BYTES_SLOT_IMMEDIATE);
-
-		if (OP_JUMP == insn->opcode || OP_JUMP_REF == insn->opcode)
-		{
-			expressionS *addr_expr = symbol_get_value_expression(lhs->X_add_symbol);
-
-			know(O_symbol == addr_expr->X_op);
-
-			where = frag - frag_now->fr_literal;
-
-			addr_expr->X_add_number = 0;
-
-			if(OP_JUMP == insn->opcode)
-			{
-				(void) fix_new_exp(frag_now, where, 4, addr_expr, 0, BFD_RELOC_32);
-			}
-			else
-			{
-				(void) fix_new_exp(frag_now, where, 4, addr_expr, 1, BFD_RELOC_AMO_RELATIVE);
-			}
-		}
-
-		md_number_to_chars(frag, insn->immv, AMO_BYTES_SLOT_IMMEDIATE);
-	}
-}*/
-
 EMIT(nop, unsigned char, opcode ATTRIBUTE_UNUSED, int, type ATTRIBUTE_UNUSED)
 {
 	char *frag;
 	
 	frag = frag_more (BYTES_PER_INSTRUCTION);
 
-	md_number_to_chars(frag, 0x00000000, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, 0x00000000, BYTES_PER_INSTRUCTION);
 }
 
 EMIT(arithmetic, unsigned char, opcode, int, type)
@@ -396,7 +346,7 @@ EMIT(arithmetic, unsigned char, opcode, int, type)
 		abort ();
 	}
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 EMIT(not, unsigned char, opcode, int, type)
@@ -430,7 +380,7 @@ EMIT(not, unsigned char, opcode, int, type)
 		abort ();
 	}
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 EMIT(mov, unsigned char, opcode, int, type)
@@ -465,14 +415,48 @@ EMIT(mov, unsigned char, opcode, int, type)
 
 	/* literal pool */
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
+
+/*
+static void amo_emit_insn(void *insn,
+						  expressionS *lhs,
+						  expressionS *rhs)
+{
+	gas_assert(insn != 0);
+
+	int e_insn = 0;
+	char *frag = frag_more(AMO_BYTES_SLOT_INSTRUCTION);
+	int where;
+
+	frag = frag_more(AMO_BYTES_SLOT_IMMEDIATE);
+
+	expressionS *addr_expr = symbol_get_value_expression(lhs->X_add_symbol);
+
+	know(O_symbol == addr_expr->X_op);
+
+	where = frag - frag_now->fr_literal;
+
+	addr_expr->X_add_number = 0;
+
+	if(OP_JUMP == insn->opcode)
+	{
+		(void) fix_new_exp(frag_now, where, 4, addr_expr, 0, BFD_RELOC_32);
+	}
+	else
+	{
+		(void) fix_new_exp(frag_now, where, 4, addr_expr, 1, BFD_RELOC_AMO_RELATIVE);
+	}
+
+	md_number_to_chars(frag, insn->immv, AMO_BYTES_SLOT_IMMEDIATE);
+
+}*/
 
 EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned long binary;
 	char *frag;
-	int imm;
+	int where;
 	
 	/* get a new frag */
 	frag = frag_more (BYTES_PER_INSTRUCTION);
@@ -482,13 +466,17 @@ EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
 	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 
-	imm = insn.operands[2].X_add_number;
+	know (insn.operands[2].X_op = O_symbol);
+
+	insn.operands[2].X_add_number = 0;
+	where = frag - frag_now->fr_literal;
+
 	/* is this overflow ? */
 	//if (imm & ~MASK_IMM21)
 	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
-	binary |= imm & MASK_IMM16;
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[2], 1, BFD_RELOC_AMO_PCREL);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 EMIT(jump, unsigned char, opcode, int, type)
@@ -522,7 +510,7 @@ EMIT(jump, unsigned char, opcode, int, type)
 
 	/* literal pool */
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
@@ -543,7 +531,7 @@ EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
 	binary |= imm & MASK_IMM8;
 
-	md_number_to_chars(frag, binary, BYTES_PER_INSTRUCTION);
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
 OPFUNCS(amo)
@@ -682,30 +670,28 @@ md_undefined_symbol (char *name ATTRIBUTE_UNUSED)
 	return NULL;
 }
 
-/* again, no floating point exptressions available */
-const char *md_atof(int type, char *list, int *size)
+/* no floating point expressions available */
+const char *
+md_atof (int type ATTRIBUTE_UNUSED, char *list ATTRIBUTE_UNUSED, int *size ATTRIBUTE_UNUSED)
 {
-	(void) type;
-	(void) list;
-	(void) size;
-	return 0;
+	return NULL;
 }
 
-/* cant round up sections yet */
-valueT md_section_align(asection *seg, valueT size)
+valueT
+md_section_align (asection *seg, valueT size)
 {
-	int align = bfd_get_section_alignment(stdoutput, seg);
-	int new_size = ((size + (1 << align) - 1) & -(1 << align));
+	int new_size;
+	int align;
+
+	align = bfd_get_section_alignment (stdoutput, seg);
+	new_size = ((size + (1 << align) - 1) & -(1 << align));
 
 	return new_size;
 }
 
-/* also, generally no support for frag conversion */
-void md_convert_frag(bfd *abfd, asection *seg, fragS *fragp)
+void
+md_convert_frag(bfd *abfd ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED, fragS *fragp ATTRIBUTE_UNUSED)
 {
-	(void) abfd;
-	(void) seg;
-	(void) fragp;
 	as_fatal(_("unexpected call"));
 }
 
@@ -718,47 +704,43 @@ void md_apply_fix(fixS *fixp, valueT *val, segT seg)
 	if (0 == fixp->fx_addsy && 0 == fixp->fx_pcrel)
 	{
 		buf = fixp->fx_frag->fr_literal + fixp->fx_where;
-		if (BFD_RELOC_AMO_PCREL == fixp->fx_r_type)
+		if (fixp->fx_r_type == BFD_RELOC_AMO_PCREL)
 		{
-			bfd_put_32(stdoutput, *val, buf);
+			bfd_put_32 (stdoutput, *val, buf);
 			fixp->fx_done = 1;
 		}
 	}
 }
 
 /* if not applied/resolved, turn a fixup into a relocation entry */
-arelent *tc_gen_reloc(asection *seg, fixS *fixp)
+arelent *
+tc_gen_reloc(asection *seg, fixS *fixp)
 {
 	arelent *reloc;
 	symbolS *sym;
 
-	gas_assert(fixp != 0);
+	gas_assert (fixp != 0);
 
-	reloc = XNEW(arelent);
-	reloc->sym_ptr_ptr = XNEW(asymbol*);
-	*reloc->sym_ptr_ptr = symbol_get_bfdsym(fixp->fx_addsy);
+	reloc = XNEW (arelent);
+	reloc->sym_ptr_ptr = XNEW (asymbol *);
+	*reloc->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_addsy);
 
 	reloc->address = fixp->fx_frag->fr_address + fixp->fx_where;
-	reloc->howto = bfd_reloc_type_lookup(stdoutput, fixp->fx_r_type);
+	reloc->howto = bfd_reloc_type_lookup (stdoutput, fixp->fx_r_type);
 	reloc->addend = fixp->fx_offset;
 
 	return reloc;
 }
 
-/* no pc-relative relocations yet, might provide one later for experimetns */
-long md_pcrel_from(fixS *fixp)
+long
+md_pcrel_from(fixS *fixp)
 {
 	return fixp->fx_frag->fr_address + fixp->fx_where;
 }
 
-/* all instructions and immediates are fixed in size, therefore
-   no relaxation required */
-int md_estimate_size_before_relax(fragS *fragp, asection *seg)
+int md_estimate_size_before_relax(fragS *fragp ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED)
 {
-	(void) fragp;
-	(void) seg;
 	as_fatal(_("unexpected call"));
-	return 0;
 }
 
 /* clean up */
