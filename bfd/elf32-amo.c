@@ -63,7 +63,7 @@ static reloc_howto_type amo_elf_howto_table[] =
 	),
 	/* A 28-bit absolute relocation. */
 	HOWTO (R_AMO_28,           /* type */
-           0,                  /* right shift */
+           2,                  /* right shift */
            2,                  /* size (0 = byte, 1 = short, 2 = long) */
            26,                 /* bit size */
            FALSE,              /* pc-relative */
@@ -78,7 +78,7 @@ static reloc_howto_type amo_elf_howto_table[] =
 	),
     /* A 16-bit pc-relative relocation. */
 	HOWTO (R_AMO_PCREL,        /* type */
-           0,                  /* right shift */
+           2,                  /* right shift */
            1,                  /* size (0 = byte, 1 = short, 2 = long) */
            16,                 /* bit size */
            TRUE,               /* pc-relative */
@@ -86,7 +86,7 @@ static reloc_howto_type amo_elf_howto_table[] =
            complain_overflow_bitfield, /* complain on overflow */
            bfd_elf_generic_reloc, /* special function */
            "R_AMO_PCREL",      /* amo */
-           TRUE,              /* partial inplace */
+           FALSE,              /* partial inplace */
            0x0000ffff,         /* src mask */
            0x0000ffff,         /* dst mask */
            TRUE                /* pc-relative offset */

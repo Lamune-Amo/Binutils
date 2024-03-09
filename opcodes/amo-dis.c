@@ -48,7 +48,7 @@ typedef struct amo_decfunc
 static char buf[DISASSEMBLE_DECODE_LENGTH + 1];
 static struct amo_instruction_dec insn_dec;
 
-DECODE(nop, int, type)
+DECODE(nop, int, type ATTRIBUTE_UNUSED)
 {
 	sprintf (buf, "nop");
 }
@@ -145,7 +145,7 @@ DECODE(branch, int, type ATTRIBUTE_UNUSED)
 	if ((imm >> 15))
 		imm |= 0xFFFF0000;
 
-	sprintf (buf, "%-5sr%d, r%d, $0x%x <sym+4>", insn_dec.name, src, opn, imm, imm);
+	sprintf (buf, "%-5sr%d, r%d, $0x%x (%d)", insn_dec.name, src, opn, imm << 2, imm << 2);
 }
 
 DECODE(jump, int, type)
@@ -159,12 +159,12 @@ DECODE(jump, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5s$0x%x (%d)", insn_dec.name, imm, imm);
+		sprintf (buf, "%-5s$0x%x", insn_dec.name, imm << 2);
 		return ;
 	}
 	else if (type == TYPE_REG)
 	{
-		src = (insn_dec.binary >> 16) & MASK_REGISTER;
+		src = (insn_dec.binary >> 21) & MASK_REGISTER;
 
 		sprintf (buf, "%-5sr%d", insn_dec.name, src);
 		return ;
@@ -174,7 +174,7 @@ DECODE(jump, int, type)
 	abort ();
 }
 
-DECODE(swi, int, type)
+DECODE(swi, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned int imm;
 

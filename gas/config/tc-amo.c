@@ -23,6 +23,7 @@
 #include "as.h"
 #include "bfd.h"
 #include "opcode/amo.h"
+#include <ctype.h>
 
 #define ENTRY(func, p) { emit_##func, p },
 #define EMIT(name, optype, opname, ptype, pname) static void emit_##name (optype opname, ptype pname)
@@ -121,8 +122,6 @@ declare_register_set (void)
 void
 md_begin (void)
 {
-	int i;
-
 	/* make register set hash table */
 	amo_reg_hash = hash_new();
 
@@ -202,7 +201,7 @@ parse_dereference (char *name, expressionS *e)
 }
 
 static int
-parse_constant (const char *name, expressionS *e)
+parse_constant (char *name, expressionS *e)
 {
 	e->X_op = O_constant;
 	e->X_add_number = expression_constant (name);
@@ -418,43 +417,10 @@ EMIT(mov, unsigned char, opcode, int, type)
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-/*
-static void amo_emit_insn(void *insn,
-						  expressionS *lhs,
-						  expressionS *rhs)
-{
-	gas_assert(insn != 0);
-
-	int e_insn = 0;
-	char *frag = frag_more(AMO_BYTES_SLOT_INSTRUCTION);
-	int where;
-
-	frag = frag_more(AMO_BYTES_SLOT_IMMEDIATE);
-
-	expressionS *addr_expr = symbol_get_value_expression(lhs->X_add_symbol);
-
-	know(O_symbol == addr_expr->X_op);
-
-	where = frag - frag_now->fr_literal;
-
-	addr_expr->X_add_number = 0;
-
-	if(OP_JUMP == insn->opcode)
-	{
-		(void) fix_new_exp(frag_now, where, 4, addr_expr, 0, BFD_RELOC_32);
-	}
-	else
-	{
-		(void) fix_new_exp(frag_now, where, 4, addr_expr, 1, BFD_RELOC_AMO_RELATIVE);
-	}
-
-	md_number_to_chars(frag, insn->immv, AMO_BYTES_SLOT_IMMEDIATE);
-
-}*/
-
 EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned long binary;
+	fixS *fixP;
 	char *frag;
 	int where;
 	
@@ -475,7 +441,9 @@ EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	//if (imm & ~MASK_IMM21)
 	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
 
-	fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[2], 1, BFD_RELOC_AMO_PCREL);
+	fixP = fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[2], 1, BFD_RELOC_AMO_PCREL);
+	fixP->fx_offset = -4;
+
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
@@ -483,7 +451,7 @@ EMIT(jump, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
 	char *frag;
-	int imm;
+	int where;
 	
 	/* get a new frag */
 	frag = frag_more (BYTES_PER_INSTRUCTION);
@@ -492,11 +460,16 @@ EMIT(jump, unsigned char, opcode, int, type)
 	binary |= (opcode << 26);
 	if (type == TYPE_IMM)
 	{
-		imm = insn.operands[0].X_add_number;
+		know (insn.operands[0].X_op = O_symbol);
+
+		insn.operands[0].X_add_number = 0;
+		where = frag - frag_now->fr_literal;
+
 		/* is this overflow ? */
 		//if (imm & ~MASK_IMM21)
 		//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
-		binary |= imm & MASK_IMM26;
+
+		fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[0], 0, BFD_RELOC_AMO_28);
 	}
 	else if (type == TYPE_REG)
 	{
@@ -507,8 +480,6 @@ EMIT(jump, unsigned char, opcode, int, type)
 		/* impossible ! */
 		abort ();
 	}
-
-	/* literal pool */
 
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
@@ -666,7 +637,7 @@ md_assemble(char *str)
 symbolS *
 md_undefined_symbol (char *name ATTRIBUTE_UNUSED)
 {
-	/* treat a symbol as extern if assembler finds undefined symbol */
+	/* handle a symbol as extern if assembler finds undefined symbol */
 	return NULL;
 }
 
@@ -695,47 +666,70 @@ md_convert_frag(bfd *abfd ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED, frag
 	as_fatal(_("unexpected call"));
 }
 
-/* not possible, instaed convert to relocs and write them */
-void md_apply_fix(fixS *fixp, valueT *val, segT seg)
+void md_apply_fix(fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 {
 	char *buf;
+	long val;
+	
+	val = * (long *) valP;
+	buf = fixP->fx_frag->fr_literal + fixP->fx_where;
 
-	/* 'fixup_segment' drops 'fx_addsy' and resets 'fx_pcrel' in case of a successful resolution */
-	if (0 == fixp->fx_addsy && 0 == fixp->fx_pcrel)
+	switch (fixP->fx_r_type)
 	{
-		buf = fixp->fx_frag->fr_literal + fixp->fx_where;
-		if (fixp->fx_r_type == BFD_RELOC_AMO_PCREL)
-		{
-			bfd_put_32 (stdoutput, *val, buf);
-			fixp->fx_done = 1;
-		}
+		case BFD_RELOC_AMO_28:
+			fixP->fx_no_overflow = (-134217728 <= val && val <= 134217727);
+			if (!fixP->fx_no_overflow)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("absolute jump out of range"));
+			if (val & 0x3)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
+			break;
+
+		case BFD_RELOC_AMO_PCREL:
+			fixP->fx_no_overflow = (-32768 <= val && val <= 32767);
+			if (!fixP->fx_no_overflow)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("relative jump out of range"));
+			if (val & 0x3)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
+			if (fixP->fx_addsy)
+			{
+				fixP->fx_done = 0;
+			}
+			else
+			{	
+				*buf++ = (val >> 2) & MASK_IMM8;
+				*buf++ = (val >> 10) & MASK_IMM8;
+				fixP->fx_done = 1;
+			}
+			break;
+		
+		default:
+			/* something is wrong */
+			abort ();
 	}
 }
 
-/* if not applied/resolved, turn a fixup into a relocation entry */
 arelent *
-tc_gen_reloc(asection *seg, fixS *fixp)
+tc_gen_reloc(asection *seg ATTRIBUTE_UNUSED, fixS *fixP)
 {
 	arelent *reloc;
-	symbolS *sym;
 
-	gas_assert (fixp != 0);
+	gas_assert (fixP != 0);
 
 	reloc = XNEW (arelent);
 	reloc->sym_ptr_ptr = XNEW (asymbol *);
-	*reloc->sym_ptr_ptr = symbol_get_bfdsym (fixp->fx_addsy);
+	*reloc->sym_ptr_ptr = symbol_get_bfdsym (fixP->fx_addsy);
 
-	reloc->address = fixp->fx_frag->fr_address + fixp->fx_where;
-	reloc->howto = bfd_reloc_type_lookup (stdoutput, fixp->fx_r_type);
-	reloc->addend = fixp->fx_offset;
+	reloc->address = fixP->fx_frag->fr_address + fixP->fx_where;
+	reloc->howto = bfd_reloc_type_lookup (stdoutput, fixP->fx_r_type);
+	reloc->addend = fixP->fx_offset;
 
 	return reloc;
 }
 
 long
-md_pcrel_from(fixS *fixp)
+md_pcrel_from(fixS *fixP)
 {
-	return fixp->fx_frag->fr_address + fixp->fx_where;
+	return fixP->fx_frag->fr_address + fixP->fx_where;
 }
 
 int md_estimate_size_before_relax(fragS *fragp ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED)
