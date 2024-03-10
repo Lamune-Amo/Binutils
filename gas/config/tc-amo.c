@@ -173,6 +173,7 @@ parse_dereference (char *name, expressionS *e)
 	name [strlen (name) - 1] = '\0';
 
 	e->X_op = O_dereference;
+	e->X_add_number = 0;
 
 	mark = name;
 	while (*mark && *mark != ',')
@@ -185,18 +186,31 @@ parse_dereference (char *name, expressionS *e)
 			e->X_add_symbol = sym;
 			return 1;
 		}
-		/* abort this if there is no register at first */
-		abort ();
+		if (*name != '$')
+		{
+			as_bad ("invalid usage: '%s'", insn.name);
+			return 0;
+		}
+		e->X_op = O_dereference_rel;
+		e->X_add_number = expression_constant (name);
+		return 1;
 	}
 
 	*mark = '\0';
 	sym = hash_find (amo_reg_hash, name);
 	if (!sym)
-		/* abort this if there is no valid register at first */
-		abort ();
+	{
+		/* bad if there is no register at first */
+		as_bad ("register must be placed first in dereference");
+		return 0;
+	}
 	e->X_add_symbol = sym;
+	if (*(mark + 1) != '$')
+	{
+		as_bad ("invalid usage: '%s'", insn.name);
+		return 0;
+	}
 	e->X_add_number = expression_constant (mark + 1);
-
 	return 1;
 }
 
@@ -417,6 +431,76 @@ EMIT(mov, unsigned char, opcode, int, type)
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
+EMIT(ldr, unsigned char, opcode, int, type)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+	
+	binary |= (opcode << 26);
+	if (type == TYPE_DREL)
+	{
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+		imm = insn.operands[1].X_add_number;
+		/* overflow check */
+		binary |= (imm >> 2) & MASK_IMM21;
+	}
+	else if (type == TYPE_DEREF)
+	{
+		binary |= ((S_GET_VALUE (insn.operands[1].X_add_symbol) & MASK_REGISTER) << 21);
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
+		imm = insn.operands[1].X_add_number;
+		/* overflow check */
+		binary |= (imm >> 2) & MASK_IMM16;
+	}
+	else
+	{
+		/* impossible ! */
+		abort ();
+	}
+
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+EMIT(str, unsigned char, opcode, int, type)
+{
+	unsigned long binary;
+	char *frag;
+	int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+	
+	binary |= (opcode << 26);
+	if (type == TYPE_DREL)
+	{
+		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
+		imm = insn.operands[0].X_add_number;
+		/* overflow check */
+		binary |= (imm >> 2) & MASK_IMM21;
+	}
+	else if (type == TYPE_DEREF)
+	{
+		binary |= ((S_GET_VALUE (insn.operands[0].X_add_symbol) & MASK_REGISTER) << 21);
+		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
+		imm = insn.operands[0].X_add_number;
+		/* overflow check */
+		binary |= (imm >> 2) & MASK_IMM16;
+	}
+	else
+	{
+		/* impossible ! */
+		abort ();
+	}
+
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+}
+
 EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned long binary;
@@ -554,7 +638,14 @@ FUNC(mov)
     ENTRY(mov, TYPE_IMM)
 	ENTRY(mov, TYPE_REG)
 ENDFUNC
-
+FUNC(ldr)
+    ENTRY(ldr, TYPE_DREL)
+	ENTRY(ldr, TYPE_DEREF)
+ENDFUNC
+FUNC(str)
+    ENTRY(str, TYPE_DREL)
+	ENTRY(str, TYPE_DEREF)
+ENDFUNC
 FUNC(beq)
     ENTRY(branch, TYPE_NONE)
 ENDFUNC

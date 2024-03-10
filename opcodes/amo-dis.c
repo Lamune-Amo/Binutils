@@ -133,6 +133,74 @@ DECODE(mov, int, type)
 	abort ();
 }
 
+DECODE(ldr, int, type)
+{
+	unsigned int base, dst;
+	unsigned int imm;
+
+	if (type == TYPE_DREL)
+	{
+		dst = (insn_dec.binary >> 21) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM21;
+		if ((imm >> 20))
+			imm |= 0xFFE00000;
+
+		sprintf (buf, "%-5sr%d, [$0x%x]", insn_dec.name, dst, imm << 2);
+		return ;
+	}
+	else if (type == TYPE_DEREF)
+	{
+		base = (insn_dec.binary >> 21) & MASK_REGISTER;
+		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM16;
+		if ((imm >> 15))
+			imm |= 0xFFFF0000;
+
+		if (imm)
+			sprintf (buf, "%-5sr%d, [r%d, $0x%x]", insn_dec.name, dst, base, imm << 2);
+		else
+			sprintf (buf, "%-5sr%d, [r%d]", insn_dec.name, dst, base);
+		return ;
+	}
+
+	/* impossible */
+	abort ();
+}
+
+DECODE(str, int, type)
+{
+	unsigned int base, dst;
+	unsigned int imm;
+
+	if (type == TYPE_DREL)
+	{
+		dst = (insn_dec.binary >> 21) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM21;
+		if ((imm >> 20))
+			imm |= 0xFFE00000;
+
+		sprintf (buf, "%-5s[$0x%x], r%d", insn_dec.name, imm << 2, dst);
+		return ;
+	}
+	else if (type == TYPE_DEREF)
+	{
+		base = (insn_dec.binary >> 21) & MASK_REGISTER;
+		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
+		imm = insn_dec.binary & MASK_IMM16;
+		if ((imm >> 15))
+			imm |= 0xFFFF0000;
+
+		if (imm)
+			sprintf (buf, "%-5s[r%d, $0x%x], r%d", insn_dec.name, base, imm << 2, dst);
+		else
+			sprintf (buf, "%-5s[r%d], r%d", insn_dec.name, base, dst);
+		return ;
+	}
+
+	/* impossible */
+	abort ();
+}
+
 DECODE(branch, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned int src, opn;
@@ -232,7 +300,14 @@ DECFUNC(mov)
 	ENTRY(mov, TYPE_IMM)
 	ENTRY(mov, TYPE_REG)
 ENDDECFUNC
-
+DECFUNC(ldr)
+	ENTRY(ldr, TYPE_DREL)
+	ENTRY(ldr, TYPE_DEREF)
+ENDDECFUNC
+DECFUNC(str)
+	ENTRY(str, TYPE_DREL)
+	ENTRY(str, TYPE_DEREF)
+ENDDECFUNC
 DECFUNC(beq)
 	ENTRY(branch, TYPE_NONE)
 ENDDECFUNC

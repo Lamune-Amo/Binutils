@@ -17,6 +17,10 @@
 #define MNEMONIC_LENGTH_MAX 10
 #define DISASSEMBLE_DECODE_LENGTH 42
 
+/* pseudo opcode */
+/* these opcodes must be eight-bits and have 1 in their MSB */
+#define PSEUDO_NOP 0b10000000
+
 #define IS_BIG_ENDIAN (!(union { uint16_t u16; unsigned char u8; }){ .u16 = 1 }.u8)
 
 #define OPCODESX(name) amo_opcode_t name##_opcodes[] = {
@@ -38,6 +42,8 @@
 #define TYPE_NONE -1
 #define TYPE_IMM 0
 #define TYPE_REG 1
+#define TYPE_DEREF 2
+#define TYPE_DREL 3
 
 /* mask */
 #define MASK_REGISTER 0x1F
@@ -48,6 +54,7 @@
 
 /* used to define the dereference */
 #define O_dereference O_md1
+#define O_dereference_rel O_md2
 
 typedef struct
 {

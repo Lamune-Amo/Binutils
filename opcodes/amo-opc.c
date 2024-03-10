@@ -27,6 +27,8 @@
 #define CONST 2
 #define SYM 3
 #define REG 5
+#define DEREF 30
+#define DEREF_REL 31
 
 #define N { 0, {  } }
 #define C { 1, { CONST } }
@@ -34,6 +36,10 @@
 #define R { 1, { REG } }
 #define RC { 2, { REG, CONST } }
 #define RR { 2, { REG, REG } }
+#define RD { 2, { REG, DEREF } }
+#define RD_R { 2, { REG, DEREF_REL } }
+#define DR { 2, { DEREF, REG } }
+#define D_RR { 2, { DEREF_REL, REG } }
 #define RRC { 3, { REG, REG, CONST } }
 #define RRS { 3, { REG, REG, SYM } }
 #define RRR { 3, { REG, REG, REG } }
@@ -43,7 +49,7 @@
 OPCODESX(amo)
 
 OPX(nop)
-	ENTRY(0b000000, N)
+	ENTRY(PSEUDO_NOP, N)
 ENDOPX
 OPX(add)
 	ENTRY(0b000000, RRC)
@@ -89,7 +95,14 @@ OPX(mov)
 	ENTRY(0b010100, RC)
 	ENTRY(0b010101, RR)
 ENDOPX
-
+OPX(ldr)
+	ENTRY(0b010110, RD_R)
+	ENTRY(0b010111, RD)
+ENDOPX
+OPX(str)
+	ENTRY(0b011000, D_RR)
+	ENTRY(0b011001, DR)
+ENDOPX
 OPX(beq)
 	ENTRY(0b011010, RRS)
 ENDOPX
