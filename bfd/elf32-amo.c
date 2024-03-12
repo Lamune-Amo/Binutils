@@ -35,8 +35,10 @@ struct amo_relocation_map
 static const struct amo_relocation_map amo_reloc_map[] =
 {
 	{ BFD_RELOC_NONE, R_AMO_NONE },
-	{ BFD_RELOC_AMO_28, R_AMO_28 },
+	{ BFD_RELOC_AMO_LITERAL, R_AMO_LITERAL },
 	{ BFD_RELOC_AMO_PCREL, R_AMO_PCREL },
+	{ BFD_RELOC_AMO_28, R_AMO_28 },
+	{ BFD_RELOC_AMO_32, R_AMO_32 },
 };
 
 static bfd_reloc_status_type
@@ -61,20 +63,20 @@ static reloc_howto_type amo_elf_howto_table[] =
            0,                  /* dst mask */
            FALSE               /* pc-relative offset */
 	),
-	/* A 28-bit absolute relocation. */
-	HOWTO (R_AMO_28,           /* type */
+    /* A 23-bit pc-relative relocation. */
+	HOWTO (R_AMO_LITERAL,      /* type */
            2,                  /* right shift */
            2,                  /* size (0 = byte, 1 = short, 2 = long) */
-           26,                 /* bit size */
-           FALSE,              /* pc-relative */
-           0,                  /* bit pos */
+           21,                 /* bit size */
+           TRUE,               /* pc-relative */
+           0,				   /* bit pos */
            complain_overflow_bitfield, /* complain on overflow */
            bfd_elf_generic_reloc, /* special function */
-           "R_AMO_28",         /* amo */
+           "R_AMO_LITERAL",    /* amo */
            FALSE,              /* partial inplace */
-           0x0fffffff,         /* src mask */
-           0x0fffffff,         /* dst mask */
-           FALSE               /* pc-relative offset */
+           0x001fffff,         /* src mask */
+           0x001fffff,         /* dst mask */
+           TRUE                /* pc-relative offset */
 	),
     /* A 16-bit pc-relative relocation. */
 	HOWTO (R_AMO_PCREL,        /* type */
@@ -90,6 +92,36 @@ static reloc_howto_type amo_elf_howto_table[] =
            0x0000ffff,         /* src mask */
            0x0000ffff,         /* dst mask */
            TRUE                /* pc-relative offset */
+	),
+	/* A 28-bit absolute relocation. */
+	HOWTO (R_AMO_28,           /* type */
+           2,                  /* right shift */
+           2,                  /* size (0 = byte, 1 = short, 2 = long) */
+           26,                 /* bit size */
+           FALSE,              /* pc-relative */
+           0,                  /* bit pos */
+           complain_overflow_bitfield, /* complain on overflow */
+           bfd_elf_generic_reloc, /* special function */
+           "R_AMO_28",         /* amo */
+           FALSE,              /* partial inplace */
+           0x03ffffff,         /* src mask */
+           0x03ffffff,         /* dst mask */
+           FALSE               /* pc-relative offset */
+	),
+    /* A 32-bit absolute relocation. */
+	HOWTO (R_AMO_32,           /* type */
+           0,                  /* right shift */
+           2,                  /* size (0 = byte, 1 = short, 2 = long) */
+           32,                 /* bit size */
+           FALSE,              /* pc-relative */
+           0,                  /* bit pos */
+           complain_overflow_bitfield, /* complain on overflow */
+           bfd_elf_generic_reloc, /* special function */
+           "R_AMO_32",         /* amo */
+           FALSE,              /* partial inplace */
+           0xffffffff,         /* src mask */
+           0xffffffff,         /* dst mask */
+           FALSE               /* pc-relative offset */
 	)
 };
 

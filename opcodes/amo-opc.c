@@ -35,6 +35,7 @@
 #define S { 1, { SYM } }
 #define R { 1, { REG } }
 #define RC { 2, { REG, CONST } }
+#define RS { 2, { REG, SYM } }
 #define RR { 2, { REG, REG } }
 #define RD { 2, { REG, DEREF } }
 #define RD_R { 2, { REG, DEREF_REL } }
@@ -94,6 +95,7 @@ ENDOPX
 OPX(mov)
 	ENTRY(0b010100, RC)
 	ENTRY(0b010101, RR)
+	ENTRY(PSEUDO_MOV, RS)
 ENDOPX
 OPX(ldr)
 	ENTRY(0b010110, RD_R)

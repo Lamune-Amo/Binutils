@@ -3024,9 +3024,11 @@ between two procedure entry points is < 2^21, or else a hint.  */
   BFD_RELOC_ALPHA_TPREL_LO16,
   BFD_RELOC_ALPHA_TPREL16,
 
-/* Relocation for jump and branch instruction */
-  BFD_RELOC_AMO_28,
+/* Relocation for jump, literal pool and branch instruction */
+  BFD_RELOC_AMO_LITERAL,
   BFD_RELOC_AMO_PCREL,
+  BFD_RELOC_AMO_28,
+  BFD_RELOC_AMO_32,
 
 /* The MIPS jump instruction.  */
   BFD_RELOC_MIPS_JMP,

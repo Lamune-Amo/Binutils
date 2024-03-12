@@ -17,10 +17,17 @@
 #define MNEMONIC_LENGTH_MAX 10
 #define DISASSEMBLE_DECODE_LENGTH 42
 
+/* literal pool */
+#define LITERAL_POOL_SIZE_DEFAULT 16
+#define LITERAL_POOL_NAME_DEFAULT ".__litpol_chunk_%x_"
+#define LITERAL_POOL_NAME_LENGTH 42
+
 /* pseudo opcode */
 /* these opcodes must be eight-bits and have 1 in their MSB */
 #define PSEUDO_NOP 0b10000000
+#define PSEUDO_MOV 0b10000001
 
+/* system */
 #define IS_BIG_ENDIAN (!(union { uint16_t u16; unsigned char u8; }){ .u16 = 1 }.u8)
 
 #define OPCODESX(name) amo_opcode_t name##_opcodes[] = {
@@ -41,9 +48,10 @@
 /* the instruction executor can receive the following macros as parameter */
 #define TYPE_NONE -1
 #define TYPE_IMM 0
-#define TYPE_REG 1
-#define TYPE_DEREF 2
-#define TYPE_DREL 3
+#define TYPE_SYM 1
+#define TYPE_REG 2
+#define TYPE_DEREF 3
+#define TYPE_DREL 4
 
 /* mask */
 #define MASK_REGISTER 0x1F

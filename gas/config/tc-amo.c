@@ -21,9 +21,10 @@
    02110-1301, USA.  */
 
 #include "as.h"
+#include <ctype.h>
+#include "obstack.h"
 #include "bfd.h"
 #include "opcode/amo.h"
-#include <ctype.h>
 
 #define ENTRY(func, p) { emit_##func, p },
 #define EMIT(name, optype, opname, ptype, pname) static void emit_##name (optype opname, ptype pname)
@@ -43,12 +44,6 @@ const char line_separator_chars[] = "";
 /* there is no floating point */
 const char EXP_CHARS[] = "";
 const char FLT_CHARS[] = "";
-
-/* no pseudo opcode (directive) */
-const pseudo_typeS md_pseudo_table[] =
-{
-	{ (char *) NULL, (void (*)(int)) NULL, 0 }
-};
 
 static struct hash_control *amo_reg_hash;
 
@@ -75,7 +70,20 @@ typedef struct amo_opfunc
 	} operations[OPERATION_PER_INSTRUCTION_MAX];
 } amo_opfunc_t;
 
-struct amo_instruction insn;
+struct litpool
+{
+	/* literal array */
+	expressionS *literals;
+	int index;
+	int size;
+
+	/* literal pool */
+	symbolS *symbol;
+	unsigned int id;
+};
+
+static struct amo_instruction insn;
+static struct litpool literal_pool;
 
 int
 md_parse_option (int c ATTRIBUTE_UNUSED, const char *arg ATTRIBUTE_UNUSED)
@@ -118,6 +126,58 @@ declare_register_set (void)
     }
 }
 
+static void
+literal_pool_init (void)
+{
+	literal_pool.literals = XNEWVEC (expressionS, LITERAL_POOL_SIZE_DEFAULT);
+	literal_pool.size = LITERAL_POOL_SIZE_DEFAULT;
+	literal_pool.index = 0;
+
+	literal_pool.symbol = symbol_create (FAKE_LABEL_NAME, undefined_section, (valueT) 0, &zero_address_frag);
+	literal_pool.id = 0;
+}
+
+static void
+literal_pool_expand (void)
+{
+	expressionS *new_lit;
+
+	new_lit = XNEWVEC (expressionS, literal_pool.size * 2);
+	memcpy (new_lit, literal_pool.literals, literal_pool.size * sizeof (expressionS));
+	XDELETEVEC (literal_pool.literals);
+	literal_pool.literals = new_lit;
+	literal_pool.size *= 2;
+}
+
+static void
+literal_pool_constant (unsigned int bytes)
+{
+	/* get a slot */
+	if (literal_pool.index == literal_pool.size)
+		literal_pool_expand ();
+
+	memset (&literal_pool.literals[literal_pool.index], 0, sizeof (expressionS));
+	literal_pool.literals[literal_pool.index].X_op = O_constant;
+	literal_pool.literals[literal_pool.index].X_add_number = bytes;
+	literal_pool.index++;
+}
+
+static void
+literal_pool_symbol (symbolS *symP, int where)
+{
+	/* get a slot */
+	if (literal_pool.index == literal_pool.size)
+		literal_pool_expand ();
+
+	gas_assert (symP != 0);
+
+	memset (&literal_pool.literals[literal_pool.index], 0, sizeof (expressionS));
+	literal_pool.literals[literal_pool.index].X_op = O_symbol;
+	literal_pool.literals[literal_pool.index].X_add_symbol = symP;
+	literal_pool.literals[literal_pool.index].X_add_number = where;
+	literal_pool.index++;
+}
+
 /* this function gets invoked once when assembler is initialized. */
 void
 md_begin (void)
@@ -133,6 +193,8 @@ md_begin (void)
 	declare_register ("lr", 31);
 	/* declare system registers */
 	declare_register ("cr0", 32);
+
+	literal_pool_init ();
 }
 
 static int
@@ -342,8 +404,7 @@ EMIT(arithmetic, unsigned char, opcode, int, type)
 	{
 		imm = insn.operands[2].X_add_number;
 		/* is this overflow ? */
-		if (imm & ~MASK_IMM16)
-			/* pool ? */
+		if (!(-32768 <= imm && imm <= 32767))
 			as_bad ("16-bit immediate must be in the range -32768 to 32767.");
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
@@ -377,8 +438,8 @@ EMIT(not, unsigned char, opcode, int, type)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		if (imm & ~MASK_IMM16)
-			as_bad ("16-bit immediate must be in the range %hd to %hd.", 0x8000, 0x7fff);
+		if (!(-32768 <= imm && imm <= 32767))
+			as_bad ("16-bit immediate must be in the range -32768 to 32767.");
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
@@ -399,6 +460,8 @@ EMIT(not, unsigned char, opcode, int, type)
 EMIT(mov, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
+	expressionS exp;
+	fixS *fixP;
 	char *frag;
 	int imm;
 	
@@ -412,22 +475,41 @@ EMIT(mov, unsigned char, opcode, int, type)
 	{
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		//if (imm & ~MASK_IMM21)
-		//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+		if (!(-1048576 <= imm && imm <= 1048575))
+			goto use_load;
 		binary |= imm & MASK_IMM21;
 	}
 	else if (type == TYPE_REG)
-	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
-	}
+	else if (type == TYPE_SYM)
+		goto use_load;
 	else
-	{
 		/* impossible ! */
 		abort ();
-	}
 
-	/* literal pool */
+	goto end;
 
+use_load:
+#define OPCODE_LDR 0b010110
+
+	binary = OPCODE_LDR << 26;
+	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+
+	memset (&exp, 0, sizeof (expressionS));
+
+	exp.X_op = O_symbol;
+	exp.X_add_symbol = literal_pool.symbol;
+
+	fixP = fix_new_exp (frag_now, frag - frag_now->fr_literal, BYTES_PER_INSTRUCTION, &exp, 1, BFD_RELOC_AMO_LITERAL);
+	fixP->fx_offset = literal_pool.index * 4 - 4;
+
+	if (type == TYPE_IMM)
+		literal_pool_constant (insn.operands[1].X_add_number);
+	else if (type == TYPE_SYM)
+		literal_pool_symbol (insn.operands[1].X_add_symbol, frag - frag_now->fr_literal);
+
+#undef OPCODE_LDR
+end:
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
@@ -446,7 +528,9 @@ EMIT(ldr, unsigned char, opcode, int, type)
 	{
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
 		imm = insn.operands[1].X_add_number;
-		/* overflow check */
+		/* is this overflow ? */
+		if (!(-4194304 <= imm && imm <= 4194303))
+			as_bad ("23-bit immediate in ldr must be in the range -4194304 to 4194303.");
 		binary |= (imm >> 2) & MASK_IMM21;
 	}
 	else if (type == TYPE_DEREF)
@@ -454,7 +538,9 @@ EMIT(ldr, unsigned char, opcode, int, type)
 		binary |= ((S_GET_VALUE (insn.operands[1].X_add_symbol) & MASK_REGISTER) << 21);
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		imm = insn.operands[1].X_add_number;
-		/* overflow check */
+		/* is this overflow ? */
+		if (!(-131072 <= imm && imm <= 131071))
+			as_bad ("18-bit immediate in ldr must be in the range -131072 to 131071.");
 		binary |= (imm >> 2) & MASK_IMM16;
 	}
 	else
@@ -481,7 +567,9 @@ EMIT(str, unsigned char, opcode, int, type)
 	{
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
 		imm = insn.operands[0].X_add_number;
-		/* overflow check */
+		/* is this overflow ? */
+		if (!(-4194304 <= imm && imm <= 4194303))
+			as_bad ("23-bit immediate in ldr must be in the range -4194304 to 4194303.");
 		binary |= (imm >> 2) & MASK_IMM21;
 	}
 	else if (type == TYPE_DEREF)
@@ -489,7 +577,9 @@ EMIT(str, unsigned char, opcode, int, type)
 		binary |= ((S_GET_VALUE (insn.operands[0].X_add_symbol) & MASK_REGISTER) << 21);
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 		imm = insn.operands[0].X_add_number;
-		/* overflow check */
+		/* is this overflow ? */
+		if (!(-131072 <= imm && imm <= 131071))
+			as_bad ("18-bit immediate in ldr must be in the range -131072 to 131071.");
 		binary |= (imm >> 2) & MASK_IMM16;
 	}
 	else
@@ -521,9 +611,7 @@ EMIT(branch, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	insn.operands[2].X_add_number = 0;
 	where = frag - frag_now->fr_literal;
 
-	/* is this overflow ? */
-	//if (imm & ~MASK_IMM21)
-	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+	/* need to check the overflow */
 
 	fixP = fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[2], 1, BFD_RELOC_AMO_PCREL);
 	fixP->fx_offset = -4;
@@ -542,16 +630,14 @@ EMIT(jump, unsigned char, opcode, int, type)
 	binary = 0;
 
 	binary |= (opcode << 26);
-	if (type == TYPE_IMM)
+	if (type == TYPE_SYM)
 	{
 		know (insn.operands[0].X_op = O_symbol);
 
 		insn.operands[0].X_add_number = 0;
 		where = frag - frag_now->fr_literal;
 
-		/* is this overflow ? */
-		//if (imm & ~MASK_IMM21)
-		//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+		/* need to check the overflow */
 
 		fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &insn.operands[0], 0, BFD_RELOC_AMO_28);
 	}
@@ -582,8 +668,9 @@ EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 
 	imm = insn.operands[0].X_add_number;
 	/* is this overflow ? */
-	//if (imm & ~MASK_IMM21)
-	//	as_bad ("21-bit immediate must be in the range -1048576 to 1048575");
+	if (!(0 <= imm && imm <= 255))
+		as_bad ("8-bit immediate in ldr must be in the range 0 to 255.");
+
 	binary |= imm & MASK_IMM8;
 
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
@@ -637,6 +724,7 @@ ENDFUNC
 FUNC(mov)
     ENTRY(mov, TYPE_IMM)
 	ENTRY(mov, TYPE_REG)
+	ENTRY(mov, TYPE_SYM)
 ENDFUNC
 FUNC(ldr)
     ENTRY(ldr, TYPE_DREL)
@@ -659,11 +747,11 @@ FUNC(ble)
     ENTRY(branch, TYPE_NONE)
 ENDFUNC
 FUNC(jmp)
-    ENTRY(jump, TYPE_IMM)
+    ENTRY(jump, TYPE_SYM)
     ENTRY(jump, TYPE_REG)
 ENDFUNC
 FUNC(jal)
-    ENTRY(jump, TYPE_IMM)
+    ENTRY(jump, TYPE_SYM)
     ENTRY(jump, TYPE_REG)
 ENDFUNC
 FUNC(swi)
@@ -725,6 +813,87 @@ md_assemble(char *str)
 		as_bad ("invalid usage: '%s'", insn.name);
 }
 
+static void
+pseudo_literals (int ignored ATTRIBUTE_UNUSED)
+{
+	unsigned long binary;
+	char *preserved_name;
+	char pool_name[LITERAL_POOL_NAME_LENGTH];
+	int i, where;
+	char *frag;
+
+	if (literal_pool.index == 0)
+		/* there is no need to build the literal pool */
+		return ;
+
+	/* align segment */
+	record_alignment (now_seg, 2);
+
+	/* get the preserved name */
+	sprintf (pool_name, LITERAL_POOL_NAME_DEFAULT, literal_pool.id);
+	obstack_grow (&notes, pool_name, strlen (pool_name) + 1);
+	preserved_name = (char *) obstack_finish (&notes);
+
+#ifdef tc_canonicalize_symbol_name
+	preserved_name = tc_canonicalize_symbol_name (preserved_name);
+#endif
+
+	/* attribute */
+	S_SET_NAME (literal_pool.symbol, preserved_name);
+	S_SET_SEGMENT (literal_pool.symbol, now_seg);
+	S_SET_VALUE (literal_pool.symbol, (valueT) frag_now_fix ());
+
+	symbol_clear_list_pointers (literal_pool.symbol);
+	symbol_set_frag (literal_pool.symbol, frag_now);
+
+	/* link to end of symbol chain.  */
+	{
+		extern int symbol_table_frozen;
+
+		if (symbol_table_frozen)
+			abort ();
+	}
+	/* insert the symbol at fragment */
+	symbol_append (literal_pool.symbol, symbol_lastP, &symbol_rootP, &symbol_lastP);
+
+	obj_symbol_new_hook (literal_pool.symbol);
+	symbol_table_insert (literal_pool.symbol);
+
+	for (i = 0; i < literal_pool.index; i++)
+	{
+		frag = frag_more (BYTES_PER_INSTRUCTION);
+
+		switch (literal_pool.literals[i].X_op)
+		{
+			case O_constant:
+				binary = literal_pool.literals[i].X_add_number;
+				break;
+
+			case O_symbol:
+				binary = 0;
+				where = frag - frag_now->fr_literal;
+				literal_pool.literals[i].X_add_number = 0;
+
+				fix_new_exp (frag_now, where, BYTES_PER_INSTRUCTION, &literal_pool.literals[i], 0, BFD_RELOC_AMO_32);
+				break;
+
+			default:
+				abort ();
+		}
+
+		md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+	}
+
+	literal_pool.symbol = symbol_create (FAKE_LABEL_NAME, undefined_section, (valueT) 0, &zero_address_frag);
+	literal_pool.index = 0;
+	literal_pool.id++;
+}
+
+const pseudo_typeS md_pseudo_table[] =
+{
+	{ "ltorg", pseudo_literals, 0 }
+};
+
 symbolS *
 md_undefined_symbol (char *name ATTRIBUTE_UNUSED)
 {
@@ -767,13 +936,24 @@ void md_apply_fix(fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 
 	switch (fixP->fx_r_type)
 	{
-		case BFD_RELOC_AMO_28:
-			fixP->fx_no_overflow = (-134217728 <= val && val <= 134217727);
+		case BFD_RELOC_AMO_LITERAL:
+			fixP->fx_no_overflow = (-4194304 <= val && val <= 4194303);
 			if (!fixP->fx_no_overflow)
-				as_bad_where (fixP->fx_file, fixP->fx_line, _("absolute jump out of range"));
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("literal out of range"));
 			if (val & 0x3)
 				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
-			break;
+			if (fixP->fx_addsy)
+			{
+				fixP->fx_done = 0;
+			}
+			else
+			{	
+				*buf++ = (val >> 2) & MASK_IMM8;
+				*buf++ = (val >> 10) & MASK_IMM8;
+				*buf++ |= (val >> 18) & 0x1f;
+				fixP->fx_done = 1;
+			}
+			break;	
 
 		case BFD_RELOC_AMO_PCREL:
 			fixP->fx_no_overflow = (-32768 <= val && val <= 32767);
@@ -792,7 +972,20 @@ void md_apply_fix(fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 				fixP->fx_done = 1;
 			}
 			break;
+
+		case BFD_RELOC_AMO_28:
+			fixP->fx_no_overflow = (-134217728 <= val && val <= 134217727);
+			if (!fixP->fx_no_overflow)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("absolute jump out of range"));
+			if (val & 0x3)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
+			break;
 		
+		case BFD_RELOC_AMO_32:
+			if (val & 0x3)
+				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
+			break;
+
 		default:
 			/* something is wrong */
 			abort ();

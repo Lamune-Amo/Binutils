@@ -2102,11 +2102,15 @@ ENUMDOC
   Alpha thread-local storage relocations.
 
 ENUM
-  BFD_RELOC_AMO_28
+  BFD_RELOC_AMO_LITERAL
 ENUMX
   BFD_RELOC_AMO_PCREL
+ENUMX
+  BFD_RELOC_AMO_28
+ENUMX
+  BFD_RELOC_AMO_32
 ENUMDOC
-  Amo jump and branch relocation.
+  Amo jump, literal pool and branch relocation.
 
 ENUM
   BFD_RELOC_MIPS_JMP
