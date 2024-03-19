@@ -423,11 +423,46 @@ EMIT(arithmetic, unsigned char, opcode, int, type)
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
+EMIT(logical, unsigned char, opcode, int, type)
+{
+	unsigned long binary;
+	char *frag;
+	unsigned int imm;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
+	if (type == TYPE_IMM)
+	{
+		imm = (unsigned int) insn.operands[2].X_add_number;
+		/* is this overflow ? */
+		if (!(imm <= 65535))
+			as_bad ("16-bit immediate must be in the range 0 to 65535 in logical calculation.");
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
+		binary |= imm & MASK_IMM16;
+	}
+	else if (type == TYPE_REG)
+	{
+		binary |= ((insn.operands[2].X_add_number & MASK_REGISTER) << 16);
+		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 11);
+	}
+	else
+	{
+		/* impossible ! */
+		abort ();
+	}
+
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+}
+
 EMIT(not, unsigned char, opcode, int, type)
 {
 	unsigned long binary;
 	char *frag;
-	int imm;
+	unsigned int imm;
 	
 	/* get a new frag */
 	frag = frag_more (BYTES_PER_INSTRUCTION);
@@ -436,10 +471,10 @@ EMIT(not, unsigned char, opcode, int, type)
 	binary |= (opcode << 26);
 	if (type == TYPE_IMM)
 	{
-		imm = insn.operands[1].X_add_number;
+		imm = (unsigned int) insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		if (!(-32768 <= imm && imm <= 32767))
-			as_bad ("16-bit immediate must be in the range -32768 to 32767.");
+		if (!(imm <= 65535))
+			as_bad ("16-bit immediate must be in the range 0 to 65535 in logical calculation.");
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		binary |= imm & MASK_IMM16;
 	}
@@ -694,32 +729,32 @@ FUNC(sub)
 	ENTRY(arithmetic, TYPE_REG)
 ENDFUNC
 FUNC(and)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(or)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(xor)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(not)
     ENTRY(not, TYPE_IMM)
 	ENTRY(not, TYPE_REG)
 ENDFUNC
 FUNC(lsl)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(lsr)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(asr)
-    ENTRY(arithmetic, TYPE_IMM)
-	ENTRY(arithmetic, TYPE_REG)
+    ENTRY(logical, TYPE_IMM)
+	ENTRY(logical, TYPE_REG)
 ENDFUNC
 FUNC(mov)
     ENTRY(mov, TYPE_IMM)
@@ -891,8 +926,17 @@ pseudo_literals (int ignored ATTRIBUTE_UNUSED)
 
 const pseudo_typeS md_pseudo_table[] =
 {
-	{ "ltorg", pseudo_literals, 0 }
+	/* word should be 4-bytes */
+    { "word", cons, 4 },
+	{ "ltorg", pseudo_literals, 0 },
+	{ NULL, (void *) NULL, 0 }
 };
+
+void
+amo_md_end (void)
+{
+	pseudo_literals (0);
+}
 
 symbolS *
 md_undefined_symbol (char *name ATTRIBUTE_UNUSED)

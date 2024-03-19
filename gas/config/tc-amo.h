@@ -33,6 +33,7 @@
 
 /* customize operand function called in expression (expr) */
 #define md_operand(x)
+#define md_end amo_md_end
 
 #define md_number_to_chars number_to_chars_littleendian
 #define WORKING_DOT_WORD
