@@ -792,6 +792,15 @@ ENDFUNC
 FUNC(swi)
     ENTRY(swi, TYPE_NONE)
 ENDFUNC
+FUNC(bltu)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(bleu)
+    ENTRY(branch, TYPE_NONE)
+ENDFUNC
+FUNC(ext)
+    ENTRY(logical, TYPE_IMM)
+ENDFUNC
 
 ENDOPFUNCS
 

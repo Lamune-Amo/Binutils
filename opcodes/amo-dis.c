@@ -53,6 +53,7 @@ DECODE(nop, int, type ATTRIBUTE_UNUSED)
 	sprintf (buf, "nop");
 }
 
+/* in decoding parts, decode the arithmetic and logical instruction together */
 DECODE(arithmetic, int, type)
 {
 	unsigned int src, dst, opn;
@@ -330,6 +331,15 @@ DECFUNC(jal)
 ENDDECFUNC
 DECFUNC(swi)
 	ENTRY(swi, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(bltu)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(bleu)
+	ENTRY(branch, TYPE_NONE)
+ENDDECFUNC
+DECFUNC(ext)
+	ENTRY(arithmetic, TYPE_IMM)
 ENDDECFUNC
 
 ENDDECFUNCS
