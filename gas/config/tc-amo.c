@@ -819,7 +819,7 @@ insn_search (const char *name)
 }
 
 void
-md_assemble(char *str)
+md_assemble (char *str)
 {
 	amo_opcode_t *insp;
 	amo_opfunc_t *fp;
@@ -974,12 +974,12 @@ md_section_align (asection *seg, valueT size)
 }
 
 void
-md_convert_frag(bfd *abfd ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED, fragS *fragp ATTRIBUTE_UNUSED)
+md_convert_frag (bfd *abfd ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED, fragS *fragp ATTRIBUTE_UNUSED)
 {
 	as_fatal(_("unexpected call"));
 }
 
-void md_apply_fix(fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
+void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 {
 	char *buf;
 	long val;
@@ -1046,7 +1046,7 @@ void md_apply_fix(fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 }
 
 arelent *
-tc_gen_reloc(asection *seg ATTRIBUTE_UNUSED, fixS *fixP)
+tc_gen_reloc (asection *seg ATTRIBUTE_UNUSED, fixS *fixP)
 {
 	arelent *reloc;
 
@@ -1064,14 +1064,14 @@ tc_gen_reloc(asection *seg ATTRIBUTE_UNUSED, fixS *fixP)
 }
 
 long
-md_pcrel_from(fixS *fixP)
+md_pcrel_from (fixS *fixP)
 {
 	return fixP->fx_frag->fr_address + fixP->fx_where;
 }
 
-int md_estimate_size_before_relax(fragS *fragp ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED)
+int md_estimate_size_before_relax (fragS *fragp ATTRIBUTE_UNUSED, asection *seg ATTRIBUTE_UNUSED)
 {
-	as_fatal(_("unexpected call"));
+	as_fatal (_("unexpected call"));
 }
 
 /* clean up */
