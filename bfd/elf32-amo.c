@@ -63,9 +63,9 @@ static reloc_howto_type amo_elf_howto_table[] =
            0,                  /* dst mask */
            FALSE               /* pc-relative offset */
 	),
-    /* A 23-bit pc-relative relocation. */
+    /* A 21-bit pc-relative relocation. */
 	HOWTO (R_AMO_LITERAL,      /* type */
-           2,                  /* right shift */
+           0,                  /* right shift */
            2,                  /* size (0 = byte, 1 = short, 2 = long) */
            21,                 /* bit size */
            TRUE,               /* pc-relative */

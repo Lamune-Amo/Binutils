@@ -146,7 +146,7 @@ DECODE(ldr, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5sr%d, [$0x%x]", insn_dec.name, dst, imm << 2);
+		sprintf (buf, "%-5sr%d, [$0x%x]", insn_dec.name, dst, imm);
 		return ;
 	}
 	else if (type == TYPE_DEREF)
@@ -158,7 +158,7 @@ DECODE(ldr, int, type)
 			imm |= 0xFFFF0000;
 
 		if (imm)
-			sprintf (buf, "%-5sr%d, [r%d, $0x%x]", insn_dec.name, dst, base, imm << 2);
+			sprintf (buf, "%-5sr%d, [r%d, $0x%x]", insn_dec.name, dst, base, imm);
 		else
 			sprintf (buf, "%-5sr%d, [r%d]", insn_dec.name, dst, base);
 		return ;
@@ -180,7 +180,7 @@ DECODE(str, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5s[$0x%x], r%d", insn_dec.name, imm << 2, dst);
+		sprintf (buf, "%-5s[$0x%x], r%d", insn_dec.name, imm, dst);
 		return ;
 	}
 	else if (type == TYPE_DEREF)
@@ -192,7 +192,7 @@ DECODE(str, int, type)
 			imm |= 0xFFFF0000;
 
 		if (imm)
-			sprintf (buf, "%-5s[r%d, $0x%x], r%d", insn_dec.name, base, imm << 2, dst);
+			sprintf (buf, "%-5s[r%d, $0x%x], r%d", insn_dec.name, base, imm, dst);
 		else
 			sprintf (buf, "%-5s[r%d], r%d", insn_dec.name, base, dst);
 		return ;

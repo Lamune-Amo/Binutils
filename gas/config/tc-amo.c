@@ -564,9 +564,9 @@ EMIT(ldr, unsigned char, opcode, int, type)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		if (!(-4194304 <= imm && imm <= 4194303))
-			as_bad ("23-bit immediate in ldr must be in the range -4194304 to 4194303.");
-		binary |= (imm >> 2) & MASK_IMM21;
+		if (!(-1048576 <= imm && imm <= 1048575))
+			as_bad ("21-bit immediate in ldr must be in the range -1048576 to 1048575.");
+		binary |= imm & MASK_IMM21;
 	}
 	else if (type == TYPE_DEREF)
 	{
@@ -574,9 +574,9 @@ EMIT(ldr, unsigned char, opcode, int, type)
 		binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 16);
 		imm = insn.operands[1].X_add_number;
 		/* is this overflow ? */
-		if (!(-131072 <= imm && imm <= 131071))
-			as_bad ("18-bit immediate in ldr must be in the range -131072 to 131071.");
-		binary |= (imm >> 2) & MASK_IMM16;
+		if (!(-32768 <= imm && imm <= 32767))
+			as_bad ("16-bit immediate in ldr must be in the range -32768 to 32767.");
+		binary |= imm & MASK_IMM16;
 	}
 	else
 	{
@@ -603,9 +603,9 @@ EMIT(str, unsigned char, opcode, int, type)
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 21);
 		imm = insn.operands[0].X_add_number;
 		/* is this overflow ? */
-		if (!(-4194304 <= imm && imm <= 4194303))
-			as_bad ("23-bit immediate in ldr must be in the range -4194304 to 4194303.");
-		binary |= (imm >> 2) & MASK_IMM21;
+		if (!(-1048576 <= imm && imm <= 1048575))
+			as_bad ("21-bit immediate in ldr must be in the range -1048576 to 1048575.");
+		binary |= imm & MASK_IMM21;
 	}
 	else if (type == TYPE_DEREF)
 	{
@@ -613,9 +613,9 @@ EMIT(str, unsigned char, opcode, int, type)
 		binary |= ((insn.operands[1].X_add_number & MASK_REGISTER) << 16);
 		imm = insn.operands[0].X_add_number;
 		/* is this overflow ? */
-		if (!(-131072 <= imm && imm <= 131071))
-			as_bad ("18-bit immediate in ldr must be in the range -131072 to 131071.");
-		binary |= (imm >> 2) & MASK_IMM16;
+		if (!(-32768 <= imm && imm <= 32767))
+			as_bad ("16-bit immediate in ldr must be in the range -32768 to 32767.");
+		binary |= imm & MASK_IMM16;
 	}
 	else
 	{
@@ -990,20 +990,18 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 	switch (fixP->fx_r_type)
 	{
 		case BFD_RELOC_AMO_LITERAL:
-			fixP->fx_no_overflow = (-4194304 <= val && val <= 4194303);
+			fixP->fx_no_overflow = (-1048576 <= val && val <= 1048575);
 			if (!fixP->fx_no_overflow)
 				as_bad_where (fixP->fx_file, fixP->fx_line, _("literal out of range"));
-			if (val & 0x3)
-				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
 			if (fixP->fx_addsy)
 			{
 				fixP->fx_done = 0;
 			}
 			else
 			{	
-				*buf++ = (val >> 2) & MASK_IMM8;
-				*buf++ = (val >> 10) & MASK_IMM8;
-				*buf++ |= (val >> 18) & 0x1f;
+				*buf++ = val & MASK_IMM8;
+				*buf++ = (val >> 8) & MASK_IMM8;
+				*buf++ |= (val >> 16) & 0x1f;
 				fixP->fx_done = 1;
 			}
 			break;	
