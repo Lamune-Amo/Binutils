@@ -188,8 +188,8 @@ md_begin (void)
 	/* declare common register set */
 	declare_register_set ();
 	/* declare special registers */
-	declare_register ("sp", 29);
-	declare_register ("fp", 30);
+	declare_register ("fp", 29);
+	declare_register ("sp", 30);
 	declare_register ("lr", 31);
 	/* declare system registers */
 	declare_register ("cr0", 32);

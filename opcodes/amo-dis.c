@@ -29,6 +29,15 @@
 #define ENTRY(func, p) { dec_##func, p },
 #define DECODE(name, ptype, pname) static void dec_##name (ptype pname)
 
+const char *REGS_STRING[33] = {
+	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
+	"r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+	"r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+	"r24", "r25", "r26", "r27", "r28", "fp", "sp", "lr",
+	NULL
+}
+#define REGS(n) ((0 <= n && n <= 31) ? REGS_STRING[n] : "INVALID_REG")
+
 struct amo_instruction_dec
 {
 	char name[MNEMONIC_LENGTH_MAX];
@@ -65,7 +74,7 @@ DECODE(arithmetic, int, type)
 		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
 		imm = insn_dec.binary & MASK_IMM16;
 
-		sprintf (buf, "%-5sr%d, r%d, $0x%hx (%hd)", insn_dec.name, dst, src, imm, imm);
+		sprintf (buf, "%-5s%s, %s, $0x%hx (%hd)", insn_dec.name, REGS(dst), REGS(src), imm, imm);
 		return ;
 	}
 	else if (type == TYPE_REG)
@@ -73,7 +82,7 @@ DECODE(arithmetic, int, type)
 		opn = (insn_dec.binary >> 16) & MASK_REGISTER;
 		dst = (insn_dec.binary >> 11) & MASK_REGISTER;
 
-		sprintf (buf, "%-5sr%d, r%d, r%d", insn_dec.name, dst, src, opn);
+		sprintf (buf, "%-5s%s, %s, %s", insn_dec.name, REGS(dst), REGS(src), REGS(opn));
 		return ;
 	}
 
@@ -91,7 +100,7 @@ DECODE(not, int, type)
 		dst = (insn_dec.binary >> 16) & MASK_REGISTER;
 		imm = insn_dec.binary & MASK_IMM16;
 
-		sprintf (buf, "%-5sr%d, $0x%hx (%hd)", insn_dec.name, dst, imm, imm);
+		sprintf (buf, "%-5s%s, $0x%hx (%hd)", insn_dec.name, REGS(dst), imm, imm);
 		return ;
 	}
 	else if (type == TYPE_REG)
@@ -99,7 +108,7 @@ DECODE(not, int, type)
 		src = (insn_dec.binary >> 16) & MASK_REGISTER;
 		dst = (insn_dec.binary >> 11) & MASK_REGISTER;
 
-		sprintf (buf, "%-5sr%d, r%d", insn_dec.name, dst, src);
+		sprintf (buf, "%-5s%s, %s", insn_dec.name, REGS(dst), REGS(src));
 		return ;
 	}
 
@@ -119,14 +128,14 @@ DECODE(mov, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5sr%d, $0x%x (%d)", insn_dec.name, dst, imm, imm);
+		sprintf (buf, "%-5s%s, $0x%x (%d)", insn_dec.name, REGS(dst), imm, imm);
 		return ;
 	}
 	else if (type == TYPE_REG)
 	{
 		src = (insn_dec.binary >> 16) & MASK_REGISTER;
 
-		sprintf (buf, "%-5sr%d, r%d", insn_dec.name, dst, src);
+		sprintf (buf, "%-5s%s, %s", insn_dec.name, REGS(dst), REGS(src));
 		return ;
 	}
 
@@ -146,7 +155,7 @@ DECODE(ldr, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5sr%d, [$0x%x]", insn_dec.name, dst, imm);
+		sprintf (buf, "%-5s%s, [$0x%x]", insn_dec.name, REGS(dst), imm);
 		return ;
 	}
 	else if (type == TYPE_DEREF)
@@ -158,9 +167,9 @@ DECODE(ldr, int, type)
 			imm |= 0xFFFF0000;
 
 		if (imm)
-			sprintf (buf, "%-5sr%d, [r%d, $0x%x]", insn_dec.name, dst, base, imm);
+			sprintf (buf, "%-5s%s, [%s, $0x%x]", insn_dec.name, REGS(dst), REGS(base), imm);
 		else
-			sprintf (buf, "%-5sr%d, [r%d]", insn_dec.name, dst, base);
+			sprintf (buf, "%-5s%s, [%s]", insn_dec.name, REGS(dst), REGS(base));
 		return ;
 	}
 
@@ -180,7 +189,7 @@ DECODE(str, int, type)
 		if ((imm >> 20))
 			imm |= 0xFFE00000;
 
-		sprintf (buf, "%-5s[$0x%x], r%d", insn_dec.name, imm, dst);
+		sprintf (buf, "%-5s[$0x%x], %s", insn_dec.name, imm, REGS(dst));
 		return ;
 	}
 	else if (type == TYPE_DEREF)
@@ -192,9 +201,9 @@ DECODE(str, int, type)
 			imm |= 0xFFFF0000;
 
 		if (imm)
-			sprintf (buf, "%-5s[r%d, $0x%x], r%d", insn_dec.name, base, imm, dst);
+			sprintf (buf, "%-5s[%s, $0x%x], %s", insn_dec.name, REGS(base), imm, REGS(dst));
 		else
-			sprintf (buf, "%-5s[r%d], r%d", insn_dec.name, base, dst);
+			sprintf (buf, "%-5s[%s], %s", insn_dec.name, REGS(base), REGS(dst));
 		return ;
 	}
 
@@ -214,7 +223,7 @@ DECODE(branch, int, type ATTRIBUTE_UNUSED)
 	if ((imm >> 15))
 		imm |= 0xFFFF0000;
 
-	sprintf (buf, "%-5sr%d, r%d, $0x%x (%d)", insn_dec.name, src, opn, imm << 2, imm << 2);
+	sprintf (buf, "%-5s%s, %s, $0x%x (%d)", insn_dec.name, REGS(src), REGS(opn), imm << 2, imm << 2);
 }
 
 DECODE(jump, int, type)
@@ -235,7 +244,7 @@ DECODE(jump, int, type)
 	{
 		src = (insn_dec.binary >> 21) & MASK_REGISTER;
 
-		sprintf (buf, "%-5sr%d", insn_dec.name, src);
+		sprintf (buf, "%-5s%s", insn_dec.name, REGS(src));
 		return ;
 	}
 
