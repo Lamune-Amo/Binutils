@@ -45,3 +45,9 @@ GNU General Public License terms under which you can copy the files.
 
 REPORTING BUGS: Again, see gdb/README, binutils/README, etc., for info
 on where and how to report problems.
+
+
+in build
+../source/configure --prefix=/home/yahong/Binutils/install --target=amo-linux
+make all CFLAGS="-O0 -g" -j4
+sudo make install
