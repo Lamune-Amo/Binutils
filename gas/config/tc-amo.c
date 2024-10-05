@@ -1023,7 +1023,7 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 			break;	
 
 		case BFD_RELOC_AMO_PCREL:
-			fixP->fx_no_overflow = (-32768 <= val && val <= 32767);
+			fixP->fx_no_overflow = (-131072 <= val && val <= 131071);
 			if (!fixP->fx_no_overflow)
 				as_bad_where (fixP->fx_file, fixP->fx_line, _("relative jump out of range"));
 			if (val & 0x3)
