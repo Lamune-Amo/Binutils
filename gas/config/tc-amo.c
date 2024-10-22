@@ -711,6 +711,21 @@ EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
+EMIT(lidt, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned long binary;
+	char *frag;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
+	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+}
+
 OPFUNCS(amo)
 
 FUNC(nop)
@@ -816,6 +831,9 @@ ENDFUNC
 FUNC(strh)
     ENTRY(str, TYPE_DREL)
 	ENTRY(str, TYPE_DEREF)
+ENDFUNC
+FUNC(lidt)
+    ENTRY(str, TYPE_REG)
 ENDFUNC
 
 ENDOPFUNCS

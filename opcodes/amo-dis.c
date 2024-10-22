@@ -261,6 +261,15 @@ DECODE(swi, int, type ATTRIBUTE_UNUSED)
 	sprintf (buf, "%-5s$0x%x (%d)", insn_dec.name, imm, imm);
 }
 
+DECODE(lidt, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned int src;
+
+	src = (insn_dec.binary >> 21) & MASK_REGISTER;
+
+	sprintf (buf, "%-5s%s", insn_dec.name, REGS(src));
+}
+
 DECFUNCS(amo)
 
 DECFUNC(nop)
@@ -365,6 +374,9 @@ ENDDECFUNC
 DECFUNC(strh)
 	ENTRY(str, TYPE_DREL)
 	ENTRY(str, TYPE_DEREF)
+ENDDECFUNC
+DECFUNC(lidt)
+	ENTRY(lidt, TYPE_REG)
 ENDDECFUNC
 
 ENDDECFUNCS
