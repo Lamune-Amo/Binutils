@@ -711,7 +711,7 @@ EMIT(swi, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
 
-EMIT(lidt, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
+EMIT(setvt, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 {
 	unsigned long binary;
 	char *frag;
@@ -722,6 +722,21 @@ EMIT(lidt, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
 
 	binary |= (opcode << 26);
 	binary |= ((insn.operands[0].X_add_number & MASK_REGISTER) << 21);
+	binary |= (insn.operands[1].X_add_number & MASK_IMM16);
+
+	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
+}
+
+EMIT(lock, unsigned char, opcode, int, type ATTRIBUTE_UNUSED)
+{
+	unsigned long binary;
+	char *frag;
+	
+	/* get a new frag */
+	frag = frag_more (BYTES_PER_INSTRUCTION);
+	binary = 0;
+
+	binary |= (opcode << 26);
 
 	md_number_to_chars (frag, binary, BYTES_PER_INSTRUCTION);
 }
@@ -832,8 +847,14 @@ FUNC(strh)
     ENTRY(str, TYPE_DREL)
 	ENTRY(str, TYPE_DEREF)
 ENDFUNC
-FUNC(lidt)
-    ENTRY(lidt, TYPE_REG)
+FUNC(setvt)
+    ENTRY(setvt, TYPE_NONE)
+ENDFUNC
+FUNC(ret)
+    ENTRY(jump, TYPE_REG)
+ENDFUNC
+FUNC(lock)
+    ENTRY(lock, TYPE_NONE)
 ENDFUNC
 
 ENDOPFUNCS
