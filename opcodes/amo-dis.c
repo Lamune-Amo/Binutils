@@ -268,7 +268,7 @@ DECODE(setvt, int, type ATTRIBUTE_UNUSED)
 	src = (insn_dec.binary >> 21) & MASK_REGISTER;
 	imm = insn_dec.binary & MASK_IMM16;
 
-	sprintf (buf, "%-5s%s, $0x%x (%d)", insn_dec.name, REGS(src), imm, imm);
+	sprintf (buf, "%-7s%s, $0x%x (%d)", insn_dec.name, REGS(src), imm, imm);
 }
 
 DECODE(ret, int, type ATTRIBUTE_UNUSED)
