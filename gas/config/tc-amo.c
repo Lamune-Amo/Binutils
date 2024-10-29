@@ -1091,6 +1091,13 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 			if (val & 0x3)
 				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
 			break;
+		
+		case BFD_RELOC_32:
+			*buf++ = val & MASK_IMM8;
+			*buf++ = (val >> 8) & MASK_IMM8;
+			*buf++ = (val >> 16) & MASK_IMM8;
+			*buf++ = (val >> 24) & MASK_IMM8;
+			break;
 
 		default:
 			/* something is wrong */
