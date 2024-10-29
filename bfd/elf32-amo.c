@@ -39,6 +39,7 @@ static const struct amo_relocation_map amo_reloc_map[] =
 	{ BFD_RELOC_AMO_PCREL, R_AMO_PCREL },
 	{ BFD_RELOC_AMO_28, R_AMO_28 },
 	{ BFD_RELOC_AMO_32, R_AMO_32 },
+    { BFD_RELOC_32, R_AMO_32 }
 };
 
 static bfd_reloc_status_type
