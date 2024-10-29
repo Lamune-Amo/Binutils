@@ -1094,8 +1094,19 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 		
 		case BFD_RELOC_32:
 			fixP->fx_no_overflow = 1;
-			if (fixP->fx_done)
-				md_number_to_chars (buf, *valP, fixP->fx_size);
+			if (fixP->fx_addsy)
+			{
+				fixP->fx_done = 0;
+			}
+			else
+			{	
+				*buf++ = val & MASK_IMM8;
+				*buf++ = (val >> 8) & MASK_IMM8;
+				*buf++ = (val >> 16) & MASK_IMM8;
+				*buf++ = (val >> 24) & MASK_IMM8;
+				fixP->fx_done = 1;
+			}
+			break;
 			break;
 
 		default:
