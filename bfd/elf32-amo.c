@@ -148,7 +148,8 @@ amo_reloc_type_lookup (bfd *abfd, bfd_reloc_code_real_type code)
 {
 	unsigned int i;
 
-	for (i = 0; i < R_AMO_max; ++i)
+    /* this field must be fixed to support BASE_RELOCATION */
+	for (i = 0; i < R_AMO_max + 1; ++i)
 	{
 		if (amo_reloc_map[i].bfd_reloc_val == code)
 			return &amo_elf_howto_table[amo_reloc_map[i].elf_reloc_val];
