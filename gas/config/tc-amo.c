@@ -1093,18 +1093,6 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 			break;
 		
 		case BFD_RELOC_32:
-			if (fixP->fx_addsy)
-			{
-				fixP->fx_done = 0;
-			}
-			else
-			{	
-				*buf++ = val & MASK_IMM8;
-				*buf++ = (val >> 8) & MASK_IMM8;
-				*buf++ = (val >> 16) & MASK_IMM8;
-				*buf++ = (val >> 24) & MASK_IMM8;
-				fixP->fx_done = 1;
-			}
 			break;
 
 		default:
