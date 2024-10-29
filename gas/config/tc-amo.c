@@ -1092,11 +1092,8 @@ void md_apply_fix (fixS *fixP, valueT *valP, segT seg ATTRIBUTE_UNUSED)
 				as_bad_where (fixP->fx_file, fixP->fx_line, _("invalid address"));
 			break;
 		
-		case BFD_RELOC_RVA:
 		case BFD_RELOC_32:
-		case BFD_RELOC_32_PCREL:
-		case BFD_RELOC_16:
-		case BFD_RELOC_8:
+			fixP->fx_no_overflow = 1;
 			if (fixP->fx_done)
 				md_number_to_chars (buf, *valP, fixP->fx_size);
 			break;
