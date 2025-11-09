@@ -1,4 +1,4 @@
-This repository contains a **non-official port**. Original notices are kept in `README.upstream/` and `COPYING*`.
+This repository contains a **non-official port**. Original notices are kept in `README.upstream` and `COPYING*`.
 
 [English](README.md) · [**한국어**](README_ko.md)
 
